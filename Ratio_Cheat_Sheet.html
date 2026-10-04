@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratio Cheat Sheet</title>
+<style>
+:root{
+  --bg:#f6f7f9; --surface:#fff; --surface-2:#f1f3f6; --border:#e2e5ea; --text:#1b1f24; --muted:#5d6672; --faint:#8a929d;
+  --good:#167a43; --good-bg:#e6f5ec; --ok:#8a5a00; --ok-bg:#fff4dc; --bad:#b4332a; --bad-bg:#fdeceb; --accent:#2f5bd3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --surface:#181c21; --surface-2:#1f242a; --border:#2b3138; --text:#e6e9ed; --muted:#a3abb5; --faint:#78818c;
+    --good:#5fd08f; --good-bg:#15301f; --ok:#f0b35a; --ok-bg:#33280f; --bad:#ff8a7d; --bad-bg:#3a1a17; --accent:#7c9dff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --surface:#181c21; --surface-2:#1f242a; --border:#2b3138; --text:#e6e9ed; --muted:#a3abb5; --faint:#78818c;
+  --good:#5fd08f; --good-bg:#15301f; --ok:#f0b35a; --ok-bg:#33280f; --bad:#ff8a7d; --bad-bg:#3a1a17; --accent:#7c9dff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:18px 16px 32px}
+header{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;margin-bottom:12px}
+h1{font-size:19px;margin:0}
+header p{margin:0;color:var(--muted);font-size:12.5px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;font-size:12px}
+.legend span{padding:2px 8px;border-radius:10px}
+.g{background:var(--good-bg);color:var(--good)} .o{background:var(--ok-bg);color:var(--ok)} .b{background:var(--bad-bg);color:var(--bad)}
+.check{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:12px}
+.check div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.check b{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.check .n{font-weight:650}
+.wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th,td{padding:6px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+thead th{position:sticky;top:0;background:var(--surface-2);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;z-index:2}
+td:first-child,th:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+thead th:first-child{background:var(--surface-2);z-index:3}
+tr.grp td{background:var(--surface-2);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:5px 9px}
+tr.grp td:first-child{background:var(--surface-2)}
+td.r{font-weight:650;white-space:nowrap}
+td.r small{display:block;font-weight:400;color:var(--faint);font-size:11px}
+td.dir{white-space:nowrap;font-weight:650}
+td.dir.up,td.dir.down{color:var(--good)} td.dir.mid{color:var(--ok)}
+td.z{font-size:12.5px;width:13%}
+td.z.g,td.z.o,td.z.b{font-weight:500}
+td.ex{color:var(--muted);font-size:12px}
+td.ex b{color:var(--text)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-top:12px;font-size:12.5px}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.notes b{display:block;margin-bottom:2px}
+footer{margin-top:10px;color:var(--faint);font-size:11.5px}
+@media print{
+  @page{size:A4 landscape;margin:6mm}
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f1f3f6}
+  body{font-size:8.6px;line-height:1.25;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  main{padding:0;max-width:none}
+  header{margin-bottom:4px} h1{font-size:13px} header p{font-size:8.5px} .legend{font-size:8.5px}
+  .wrap{border:0;overflow:visible} table{min-width:0}
+  th,td{padding:1.4px 4px} thead th{position:static;font-size:7.6px}
+  td:first-child,th:first-child{position:static}
+  tr.grp td{padding:1.4px 4px;font-size:7.6px}
+  td.z{font-size:8.3px} td.ex{font-size:8px} td.r small{font-size:7.5px;display:inline;margin-left:4px}
+  .check{gap:3px;margin-bottom:4px;grid-template-columns:repeat(5,1fr)} .check div{padding:2px 5px} .check b{font-size:7.3px}
+  .notes{gap:3px;margin-top:4px;font-size:8px;grid-template-columns:repeat(4,1fr)} .notes div{padding:2px 5px}
+  footer{margin-top:3px;font-size:7.5px}
+  tr{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Stock Ratio Cheat Sheet</h1>
+  <p>Quick reference for Indian equities · examples from your Oct 2026 lists · rules of thumb, not advice</p>
+  <div class="legend"><span class="g">🟢 Good</span><span class="o">🟡 Okay / depends</span><span class="b">🔴 Check / avoid</span></div>
+</header>
+
+<div class="check">
+  <div><b>1 · Good business?</b><span class="n">ROE &gt; 15%</span> for 3-4 years</div>
+  <div><b>2 · Growing?</b><span class="n">Profit CAGR &gt; 12%</span>, sales growing too</div>
+  <div><b>3 · Safe?</b><span class="n">Debt/Equity &lt; 50</span> and <span class="n">Interest cover &gt; 5×</span></div>
+  <div><b>4 · Fair price?</b><span class="n">P/E ≤ sector</span> (PE vs sector &lt; 1) or <span class="n">PEG &lt; 1</span></div>
+  <div><b>5 · Can I exit?</b><span class="n">Turnover &gt; ₹1 Cr/day</span>, promoter not selling</div>
+</div>
+
+<div class="wrap"><table>
+<thead><tr><th>Ratio</th><th>What it tells you</th><th>Better</th><th>🟢 Good</th><th>🟡 Okay</th><th>🔴 Check</th><th>Example (your lists)</th></tr></thead>
+<tbody>
+<tr class="grp"><td colspan="7">Size</td></tr>
+<tr><td class="r">Market cap<small>price × shares</small></td><td>Price tag of the whole company</td><td class="dir mid">↕</td><td class="z g">Large &gt; ₹1 lakh Cr (steady)</td><td class="z o">Mid ₹35k–1L Cr</td><td class="z b">Small &lt; ₹13k Cr; extra care &lt; ₹3k Cr</td><td class="ex">RELIANCE ₹15.8 L Cr · SARDAEN small</td></tr>
+
+<tr class="grp"><td colspan="7">Valuation — cheap or expensive?</td></tr>
+<tr><td class="r">P/E<small>price ÷ profit per share</small></td><td>₹ paid for ₹1 of yearly profit</td><td class="dir down">↓ lower</td><td class="z g">&lt; 15 (with growth)</td><td class="z o">15–35</td><td class="z b">&gt; 50, or blank (loss)</td><td class="ex"><b>CANBK 5.4</b> cheap · <b>DIVISLAB 84</b> costly</td></tr>
+<tr><td class="r">PE vs sector<small>P/E ÷ sector median</small></td><td>Cheap vs its own peers</td><td class="dir down">↓ lower</td><td class="z g">&lt; 0.8×</td><td class="z o">0.8–1.2×</td><td class="z b">&gt; 1.5×</td><td class="ex"><b>LUPIN 0.32×</b> · TORNTPHARM 1.47×</td></tr>
+<tr><td class="r">Forward P/E<small>price ÷ next-year profit</small></td><td>Valuation on expected profit</td><td class="dir down">↓ lower</td><td class="z g">Below current P/E</td><td class="z o">≈ current P/E</td><td class="z b">Above current P/E (profit to fall)</td><td class="ex">MARUTI 25 → fwd 18.8</td></tr>
+<tr><td class="r">PEG<small>P/E ÷ growth %</small></td><td>Price adjusted for growth</td><td class="dir down">↓ lower</td><td class="z g">&lt; 1</td><td class="z o">1–2</td><td class="z b">&gt; 2 or negative</td><td class="ex">MARUTI 0.77</td></tr>
+<tr><td class="r">P/B<small>price ÷ book value/share</small></td><td>Price vs net worth — <b>key for banks</b></td><td class="dir down">↓ lower</td><td class="z g">Banks 1–2</td><td class="z o">Banks 2–3</td><td class="z b">&gt; 4 (banks) · &lt; 0.7 check bad loans</td><td class="ex">MARUTI 3.3 (fine: asset-light)</td></tr>
+<tr><td class="r">EV/EBITDA<small>(mcap + debt − cash) ÷ op. profit</small></td><td>Valuation that counts debt</td><td class="dir down">↓ lower</td><td class="z g">&lt; 10</td><td class="z o">10–20</td><td class="z b">&gt; 25 · not for banks</td><td class="ex">MARUTI 16</td></tr>
+<tr><td class="r">FCF yield<small>free cash ÷ mcap</small></td><td>Real cash earned on the price</td><td class="dir up">↑ higher</td><td class="z g">&gt; 5%</td><td class="z o">2–5%</td><td class="z b">Negative for years</td><td class="ex">Not for banks</td></tr>
+
+<tr class="grp"><td colspan="7">Profitability — good business?</td></tr>
+<tr><td class="r">ROE<small>profit ÷ owners' money</small></td><td>How hard your money works</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15% (20%+ excellent)</td><td class="z o">10–15%</td><td class="z b">&lt; 10% · very high + high debt</td><td class="ex"><b>HINDZINC 68%</b> · GLAXO 40% · NMDC 23%</td></tr>
+<tr><td class="r">ROE (4-yr avg)<small>average of 4 years</small></td><td>Consistently good, not one lucky year</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15%</td><td class="z o">10–15%</td><td class="z b">&lt; 8% (screen rejects)</td><td class="ex">NATIONALUM 20% · SBIN 15%</td></tr>
+<tr><td class="r">Operating margin<small>op. profit ÷ sales</small></td><td>Profit from the core business</td><td class="dir up">↑ higher</td><td class="z g">&gt; 20% (IT/FMCG/pharma)</td><td class="z o">8–20% (manufacturing)</td><td class="z b">Falling yr after yr · compare in sector</td><td class="ex">MARUTI 4.8%</td></tr>
+<tr><td class="r">Net margin<small>net profit ÷ sales</small></td><td>₹ kept from every ₹100 sold</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15%</td><td class="z o">8–15%</td><td class="z b">&lt; 5% (unless retail/steel)</td><td class="ex">₹8 per ₹100 = 8%</td></tr>
+
+<tr class="grp"><td colspan="7">Growth — getting bigger?</td></tr>
+<tr><td class="r">Revenue CAGR<small>sales growth / yr, ~4 yrs</small></td><td>Is the business expanding</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15%</td><td class="z o">8–15%</td><td class="z b">&lt; 5% or shrinking</td><td class="ex">ANTHEM 26% · VEDL −19%</td></tr>
+<tr><td class="r">Profit CAGR<small>profit growth / yr</small></td><td>Is profit keeping up</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15%</td><td class="z o">10–15%</td><td class="z b">&lt; 5% · huge % from a weak base year</td><td class="ex">LUPIN 132% (low base!)</td></tr>
+
+<tr class="grp"><td colspan="7">Safety — debt &amp; risk</td></tr>
+<tr><td class="r">Debt/Equity<small>loans ÷ owners' money, in %</small></td><td>How much is borrowed</td><td class="dir down">↓ lower</td><td class="z g">&lt; 50 (0.5×)</td><td class="z o">50–100</td><td class="z b">&gt; 150 · ignore for banks</td><td class="ex">NATIONALUM 0.3 · JSWSTEEL 95</td></tr>
+<tr><td class="r">Interest cover<small>op. profit ÷ interest</small></td><td>Times it can pay its interest</td><td class="dir up">↑ higher</td><td class="z g">&gt; 5×</td><td class="z o">2–5×</td><td class="z b">&lt; 2× (screen rejects)</td><td class="ex">MARUTI 81×</td></tr>
+<tr><td class="r">Beta<small>move vs market</small></td><td>1 = moves like Nifty</td><td class="dir mid">↕</td><td class="z g">&lt; 1 calmer</td><td class="z o">1–1.3</td><td class="z b">&gt; 1.5 very swingy</td><td class="ex">360ONE 0.47</td></tr>
+<tr><td class="r">Volatility<small>yearly price swing</small></td><td>How bumpy the ride is</td><td class="dir down">↓ lower</td><td class="z g">&lt; 20%</td><td class="z o">20–35%</td><td class="z b">&gt; 45%</td><td class="ex">MARUTI 23% · silver ~34%</td></tr>
+<tr><td class="r">Max drawdown (3y)<small>worst fall from a peak</small></td><td>Worst pain you'd have sat through</td><td class="dir up">↑ nearer 0</td><td class="z g">Better than −20%</td><td class="z o">−20% to −40%</td><td class="z b">Worse than −50%</td><td class="ex">MARUTI −33.5% (₹1L → ₹66k)</td></tr>
+
+<tr class="grp"><td colspan="7">Dividends — income</td></tr>
+<tr><td class="r">Dividend yield<small>dividend ÷ price</small></td><td>Yearly cash per ₹100 invested</td><td class="dir up">↑ higher</td><td class="z g">3–5%</td><td class="z o">1–3% (0% ok for growth stocks)</td><td class="z b">&gt; 7% → check it's not one-off</td><td class="ex">CANBK 3.6% · VEDL 13.5% (special)</td></tr>
+<tr><td class="r">Payout ratio<small>dividend ÷ profit</small></td><td>Share of profit paid out</td><td class="dir mid">↕</td><td class="z g">20–60%</td><td class="z o">60–90% or &lt; 20%</td><td class="z b">&gt; 90% (may be cut)</td><td class="ex">MARUTI 30%</td></tr>
+
+<tr class="grp"><td colspan="7">Ownership</td></tr>
+<tr><td class="r">Promoter %<small>founders / parent stake</small></td><td>Own money at stake</td><td class="dir mid">↕</td><td class="z g">50–75%</td><td class="z o">30–50% (or PSU: govt)</td><td class="z b">&lt; 25% · pledged shares</td><td class="ex">SBIN 55% (govt) · M&amp;M 18%</td></tr>
+<tr><td class="r">Promoter change (1y)<small>in % points</small></td><td>Are owners buying or selling</td><td class="dir up">↑ higher</td><td class="z g">Rising (buying)</td><td class="z o">0 to −1 pt</td><td class="z b">Falling &gt; 3 pts</td><td class="ex">HINDCOPPER 0.0 (steady at 66%)</td></tr>
+
+<tr class="grp"><td colspan="7">Price &amp; trend</td></tr>
+<tr><td class="r">% below 52W high</td><td>How far it fell from the 1-yr peak</td><td class="dir mid">↕</td><td class="z g">0–10% strong · 20–40% buy-zone for quality</td><td class="z o">10–20%</td><td class="z b">&gt; 50% → find the reason</td><td class="ex">MARUTI 34.5% below</td></tr>
+<tr><td class="r">Price vs 200-DMA<small>vs 200-day average</small></td><td>Long-term trend</td><td class="dir mid">↕</td><td class="z g">0 to +20% uptrend</td><td class="z o">−10% to 0</td><td class="z b">&lt; −15% downtrend · &gt; +30% overheated</td><td class="ex">MARUTI −17.6%</td></tr>
+<tr><td class="r">Turnover / day<small>₹ traded daily</small></td><td>Can you buy/sell easily</td><td class="dir up">↑ higher</td><td class="z g">&gt; ₹1 Cr</td><td class="z o">₹10 L – 1 Cr</td><td class="z b">&lt; ₹10 L (hard to exit)</td><td class="ex">SME / BSE-only often illiquid</td></tr>
+
+<tr class="grp"><td colspan="7">Returns &amp; our score</td></tr>
+<tr><td class="r">CAGR<small>yearly growth rate</small></td><td>Compare any time period</td><td class="dir up">↑ higher</td><td class="z g">&gt; 15% (5y+)</td><td class="z o">10–15% (≈ market)</td><td class="z b">&lt; 8% long term</td><td class="ex">+50% in 3 yrs = 14.5%/yr · Nifty 30y ≈ 11%</td></tr>
+<tr><td class="r">Screen score<small>0–100, this project</small></td><td>Quality 35 · Safety 20 · Value 20 · Income 10 · Trend 15</td><td class="dir up">↑ higher</td><td class="z g">&gt; 60</td><td class="z o">45–60</td><td class="z b">&lt; 40</td><td class="ex">NATIONALUM 65.5 · CAPLIPOINT 68.8</td></tr>
+</tbody></table></div>
+
+<div class="notes">
+  <div><b>🏦 Banks are different</b>Use P/B, ROE, ROA and NPA (bad loans). Ignore Debt/Equity, EV/EBITDA, FCF, Interest cover.</div>
+  <div><b>⚖️ Compare within the sector</b>IT/FMCG naturally have high P/E &amp; margins; steel/banks low. A "high" number may be normal for that sector.</div>
+  <div><b>🔗 Read ratios together</b>Low P/E + falling profit = value trap. High ROE + high debt = risky. One ratio never decides.</div>
+  <div><b>📅 Check the trend</b>Improving ROE, margins and growth over 3-4 years beats a single great year.</div>
+</div>
+<footer>Formulas use a sample company "Chai Ltd" (price ₹200, profit ₹40 Cr, equity ₹200 Cr, debt ₹100 Cr) in the explanations. Ranges are general Indian-market rules of thumb, not investment advice. Prints on one A4 landscape page.</footer>
+</main>
+</body>
+</html>
