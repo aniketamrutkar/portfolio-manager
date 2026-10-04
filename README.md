@@ -6,6 +6,8 @@ A reproducible pipeline that builds a database of **every Indian listed instrume
 
 ---
 
+**Live site:** https://aniketamrutkar.github.io/portfolio-manager/ (GitHub Pages from `main` / root; `index.html` forwards to `Portfolio_Manager.html`). To update it, run `./run_all.sh`, then commit and push. Pages redeploys in about a minute. Your own account edits and stars live in your browser's storage, not in the repo.
+
 ## 1. Quick start
 
 ```bash
