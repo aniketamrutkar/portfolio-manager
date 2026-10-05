@@ -23,8 +23,8 @@ open Portfolio_Manager.html  # or double-click it; on Windows: start Portfolio_M
 
 **Verify a run** (do this after any change):
 1. Every step prints no traceback. Step 18 prints `… 5097 scrips, 55 columns, 147 assigned …`, and step 14 prints the backtest return tables. The counts can change slightly after `--refresh`.
-2. Open `Portfolio_Manager.html#selftest` in a browser. It should show `PASS` on all 53 lines and no `FAIL`. For a headless check:
-   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --virtual-time-budget=8000 --dump-dom "file://$PWD/Portfolio_Manager.html#selftest" | grep -c PASS` should print `53`.
+2. Open `Portfolio_Manager.html#selftest` in a browser. It should show `PASS` on all 60 lines and no `FAIL`. For a headless check:
+   `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --virtual-time-budget=8000 --dump-dom "file://$PWD/Portfolio_Manager.html#selftest" | grep -c PASS` should print `60`.
    Chrome can hang after dumping, so wrap it in a timeout, for example `perl -e 'alarm 40; exec @ARGV' chrome …`.
 3. `Account_Portfolios_20+20.csv` should have 120 rows: 3 accounts × (20 + 20), with 8 Large, 6 Mid and 6 Small in every list. `ETF_SGB_Per_Account.csv` should have 27 rows: 3 × 9.
 
@@ -197,11 +197,12 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
   - CSV downloads
 
   It shows the lists as built; edits made in the app aren't backtested.
-- **★ Stars and Shortlist tab:**
-  - ☆ appears beside every stock: All Scrips, account tabs, Sector Top 10, Nifty 100, Sector Picks, Backtest, the Compare header and the stock popup. One click shortlists it.
-  - The **★ Shortlist** tab lists the starred stocks, sorted by v3 score, with tiles showing how many are already in each account.
-  - From there you can tick stocks and **Assign to…** to divide them into PEW-Angel, JPW-Angel or JPW-Zerodha (Active / To Invest / ETF·SGB), send up to 10 to **⚖ Compare**, **Unstar** them, or clear the list (click twice to confirm).
-  - Stars are stored in `S.stars`. They survive the clean-slate baseline switch and are included in State ▾ save/load.
+- **Marks (★ shortlist / ? doubtful / ✗ rejected) and the Shortlist tab:**
+  - ☆ appears beside every stock: All Scrips, account tabs, Sector Top 10, Nifty 100, Sector Picks, Backtest and the Compare header. Clicking it opens a small picker: **★ Shortlist**, **? Doubtful**, **✗ Reject** (or Clear); keys s / d / r / c work while it is open. The icon then shows the mark. The stock popup has the three as toggle buttons beside the name.
+  - A stock has at most one mark. Rejected stocks are dimmed (ticker struck through) in every table so they stand out while browsing.
+  - The **★ ? ✗ Shortlist** tab has a switch for ★ Shortlisted / ? Doubtful / ✗ Rejected / All marked, sorted by v3 score, with a Mark and a "Marked on" column. Tiles count each mark and how many ★ stocks are already in each account.
+  - From there you can tick stocks and use **Selected → ★ / ? / ✗ / Clear mark** to move them between lists, **Assign to…** to divide them into PEW-Angel, JPW-Angel or JPW-Zerodha (Active / To Invest / ETF·SGB), send up to 10 to **⚖ Compare**, or clear the current list (click twice to confirm).
+  - Marks are stored in `S.stars`, `S.doubts`, `S.rejects` (symbol → timestamp; `MARKS` in the template maps them). They survive the clean-slate baseline switch and are included in State ▾ save/load. Only ★ counts as "your pick" in Sector Top 10 / Nifty 100.
 - **Compare tab:** pick 2–10 stocks (search box, **⚖ Compare** in any stock popup, or from ★ Shortlist) and see them side by side on every calculated field:
   - overview and account/list membership
   - v3 score and the six pillars, plus the v2 score
@@ -247,7 +248,7 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
   - Save state to `.json` and Load it back, for moving edits to another device or browser
   - Reset to the original lists
   - Light/dark toggle
-- **URL hashes:** `#tab=a1|a2|a3|board|chg|bt|sec|picks|top10|n100|star|cmp|cheat|all` opens a tab, and `#scrip=MARUTI` (or `NSE:MARUTI`) opens a stock's popup; combine them as `#tab=a1&scrip=MARUTI`. `#selftest` runs 53 checks without touching saved state, then prints PASS/FAIL and a base64 ZIP for verification.
+- **URL hashes:** `#tab=a1|a2|a3|board|chg|bt|sec|picks|top10|n100|star|cmp|cheat|all` opens a tab, and `#scrip=MARUTI` (or `NSE:MARUTI`) opens a stock's popup; combine them as `#tab=a1&scrip=MARUTI`. `#selftest` runs 60 checks without touching saved state, then prints PASS/FAIL and a base64 ZIP for verification.
 - **Rebuilding** (step 18) replaces the embedded data and the "original" lists. Saved browser edits still load, with any symbols no longer in the universe dropped. Save state to a file before a big refresh.
 
 ---
@@ -299,6 +300,7 @@ An attempt was made to use the owner's Angel One SmartAPI subscription for price
 
 ## 10. History
 
+- 2026-10-06: ☆ now opens a ★ / ? / ✗ picker (shortlist, doubtful, rejected); rejected rows are dimmed everywhere; the Shortlist tab gained ★ / ? / ✗ / All views and bulk move between them. Self-test is now 60 checks.
 - 2026-10-04: added ☆ stars on every stock, a ★ Shortlist tab (assign, compare and unstar in bulk), and raised Compare to 10 stocks (fixed-width columns above 3 stocks).
 - 2026-10-04: **clean slate.** The app's accounts start empty and the original suggestions moved to `Suggested_Lists_Backup/` (`START_EMPTY` in common.py). "In your lists" columns are now live. The Compare selection now persists.
 - 2026-10-04: added a Compare tab (2–4 stocks, every parameter, best-in-row ★) and a ⚖ Compare button in the stock popup.

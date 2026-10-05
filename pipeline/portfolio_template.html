@@ -271,6 +271,25 @@ details.method>summary{cursor:pointer;font-weight:650;font-size:14.5px}
 :root[data-theme="dark"] .st.on{color:#f5c542}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .st.on{color:#f5c542}}
 .dm .st{font-size:20px}
+/* marks: ★ shortlist / ? doubtful / ✗ rejected */
+.st.doubt,.mk.doubt.on{color:#d97706} .st.rej,.mk.rej.on{color:var(--neg)}
+.st.doubt,.st.rej{font-weight:800}
+.mkbar{display:inline-flex;gap:2px;margin-right:8px;vertical-align:2px}
+.mk{border:1px solid var(--border);background:var(--surface);border-radius:6px;min-width:28px;height:26px;padding:0 6px;font-size:14px;font-weight:700;line-height:1;color:var(--faint);cursor:pointer}
+.mk:hover{border-color:var(--border-strong);color:var(--text)}
+.mk.star.on{color:#e0a100} .mk.on{border-color:currentColor;background:var(--surface-2)}
+.mkmenu{display:flex;gap:4px;align-items:center}
+.mkmenu .mk{min-width:auto;height:30px;padding:0 10px;font-size:13px;font-weight:600;display:inline-flex;gap:5px;align-items:center}
+.mkmenu .mk b{font-size:15px}
+.mkmenu .mk.clr{color:var(--muted)}
+tr.rej>td:not(:first-child){opacity:.5}
+tr.rej .tk{text-decoration:line-through}
+.mseg{display:inline-flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.mseg button{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:5px 12px;font-weight:600}
+.mseg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.mseg .ic{font-weight:800;margin-right:4px}
+.mseg .ic.star{color:#e0a100} .mseg .ic.doubt{color:#d97706} .mseg .ic.rej{color:var(--neg)}
+.mseg .n{color:var(--muted);font-weight:500;margin-left:4px}
 
 /* compare tab */
 .cmp-pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
@@ -419,7 +438,7 @@ const fmtN = (v, d) => v == null ? '' : Number(v).toLocaleString('en-IN', {maxim
 const short = s => String(s).replace(/^(NSE|BSE|CUSTOM):/, '');
 
 // ---------- state ----------
-let S = {assign: {}, targets: {'Active': 20, 'To Invest': 20, 'ETF / SGB': 9}, custom: [], vis: {}, freeze: {}, stars: {}, cmp: []};
+let S = {assign: {}, targets: {'Active': 20, 'To Invest': 20, 'ETF / SGB': 9}, custom: [], vis: {}, freeze: {}, stars: {}, doubts: {}, rejects: {}, cmp: []};
 let hist = [], fut = [];
 let ALL = [], BY = new Map();
 function reindex() {
@@ -436,7 +455,7 @@ function load() {
     if (raw) {
       const o = JSON.parse(raw);
       if (o && o.assign) {
-        S.custom = o.custom || []; S.targets = Object.assign(S.targets, o.targets || {}); S.vis = o.vis || {}; S.freeze = o.freeze || {}; S.cmp = o.cmp || []; S.stars = o.stars || {};
+        S.custom = o.custom || []; S.targets = Object.assign(S.targets, o.targets || {}); S.vis = o.vis || {}; S.freeze = o.freeze || {}; S.cmp = o.cmp || []; S.stars = o.stars || {}; S.doubts = o.doubts || {}; S.rejects = o.rejects || {};
         if (o.baseline === D.baseline) S.assign = o.assign;           // same starting lists as this build: keep the edits
         else { S.resetNotice = Object.keys(o.assign).length; }        // the build switched to a new baseline (e.g. clean slate): start from it, keep UI preferences
       }
@@ -489,25 +508,49 @@ function val(r, k) {
   if (k === '_asg') return asgLabel(r[SYM]);
   if (k === '_list') { const v = S.assign[r[SYM]]; return v ? v.l : ''; }
   if (k === '_v3') { const x = V3.get(r[SYM]); return x ? x['Score v3'] : null; }
-  if (k === '_star') { const t0 = S.stars[r[SYM]]; return t0 ? new Date(t0).toISOString().slice(0, 10) : ''; }
+  if (k === '_star') { const m = markOf(r[SYM]), t0 = m && S[MARKS[m].s][r[SYM]]; return t0 ? new Date(t0).toISOString().slice(0, 10) : ''; }
+  if (k === '_mark') { const m = markOf(r[SYM]); return m ? MARKS[m].n : ''; }
   return r[CI[k]];
 }
 
-// ---------- stars (shortlist) ----------
-const isStar = sym => !!(S.stars && S.stars[sym]);
-const starBtn = sym => `<button class="st${isStar(sym) ? ' on' : ''}" data-star="${esc(sym)}" aria-pressed="${isStar(sym)}" title="${isStar(sym) ? 'Remove from shortlist' : 'Add to shortlist'}" aria-label="Star ${esc(short(sym))}">${isStar(sym) ? '★' : '☆'}</button>`;
-function toggleStar(sym, force) {
+// ---------- marks: ★ shortlist / ? doubtful / ✗ rejected (one per stock) ----------
+const MARKS = {
+  star: {i: '★', n: 'Shortlisted', v: 'Shortlist', s: 'stars'},
+  doubt: {i: '?', n: 'Doubtful', v: 'Doubtful', s: 'doubts'},
+  rej: {i: '✗', n: 'Rejected', v: 'Reject', s: 'rejects'},
+};
+const MK = Object.keys(MARKS);
+const markOf = sym => MK.find(m => S[MARKS[m].s][sym]) || '';
+const isStar = sym => !!S.stars[sym];
+const markCount = m => Object.keys(S[MARKS[m].s]).length;
+const markTitle = m => m ? `${MARKS[m].n} — click to change` : 'Mark: ★ shortlist · ? doubtful · ✗ reject';
+const starBtn = sym => { const m = markOf(sym); return `<button class="st${m ? ' on ' + m : ''}" data-star="${esc(sym)}" aria-haspopup="menu" title="${markTitle(m)}" aria-label="Mark ${esc(short(sym))}">${m ? MARKS[m].i : '☆'}</button>`; };
+const markBar = sym => { const c = markOf(sym); return `<span class="mkbar" role="group" aria-label="Mark">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}</span>`; };
+function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
   if (!BY.has(sym)) return;
-  const on = force ?? !isStar(sym);
-  if (on) S.stars[sym] = Date.now(); else delete S.stars[sym];
+  for (const k of MK) delete S[MARKS[k].s][sym];
+  if (m) S[MARKS[m].s][sym] = Date.now();
   save();
-  document.querySelectorAll('[data-star]').forEach(b => { if (b.dataset.star === sym) { b.classList.toggle('on', on); b.textContent = on ? '★' : '☆'; b.setAttribute('aria-pressed', on); b.title = on ? 'Remove from shortlist' : 'Add to shortlist'; } });
+  document.querySelectorAll('[data-star]').forEach(b => { if (b.dataset.star === sym) { b.className = 'st' + (m ? ' on ' + m : ''); b.textContent = m ? MARKS[m].i : '☆'; b.title = markTitle(m); } });
+  document.querySelectorAll('[data-msym]').forEach(b => { if (b.dataset.msym === sym) { const on = b.dataset.mark === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.title = on ? 'Clear: ' + MARKS[b.dataset.mark].n : MARKS[b.dataset.mark].v; } });
+  document.querySelectorAll('tr[data-sym]').forEach(tr => { if (tr.dataset.sym === sym) tr.classList.toggle('rej', m === 'rej'); });
   renderTabs();
   if (tab === 'star') mountShortlist();
 }
+function toggleStar(sym, force) { const on = force ?? !isStar(sym); if (on) setMark(sym, 'star'); else if (isStar(sym)) setMark(sym, ''); }
+function markPop(anchor, sym) {
+  const c = markOf(sym);
+  openPop(anchor, `<div class="pt">Mark <b>${esc(short(sym))}</b></div><div class="mkmenu">${MK.map(m => `<button class="mk ${m}${c === m ? ' on cur' : ''}" data-pm="${m}"><b>${MARKS[m].i}</b>${MARKS[m].v}</button>`).join('')}${c ? '<button class="mk clr" data-pm="">Clear</button>' : ''}</div>`, p => {
+    p.onclick = e => { const b = e.target.closest('[data-pm]'); if (!b) return; closePop(); setMark(sym, b.dataset.pm); };
+    p.onkeydown = e => { const k = {s: 'star', d: 'doubt', r: 'rej', x: 'rej', c: ''}[e.key.toLowerCase()]; if (k !== undefined) { e.preventDefault(); closePop(); setMark(sym, k); } };
+  });
+}
+const rowMarkCls = sym => S.rejects[sym] ? ' rej' : '';
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('[data-star]'); if (!b) return;
-  e.preventDefault(); e.stopPropagation(); toggleStar(b.dataset.star);
+  const t = e.target.closest && e.target.closest('[data-star], [data-mark]'); if (!t) return;
+  e.preventDefault(); e.stopPropagation();
+  if (t.dataset.mark) setMark(t.dataset.msym, markOf(t.dataset.msym) === t.dataset.mark ? '' : t.dataset.mark);
+  else markPop(t, t.dataset.star);
 }, true);
 
 // ---------- filters ----------
@@ -637,13 +680,13 @@ const GL = {
   'Rank': {d: 'Rank within the group by the portfolio screen score (stocks that pass every filter first). Filtered-out stocks only appear when a group has fewer than 10 passers.', b: 'down', i: '1 = best by the screen.'},
   'In your lists': {d: 'Where the stock already sits in your three accounts (read-only - nothing here changes the lists).', b: 'na'},
   'Data notes': {d: 'Why a stock may lack long-horizon data (recent listing, Yahoo history gap), split-history corrections, and unusual one-day moves (possible demergers) that are NOT adjusted - check those before trusting the long-run numbers.', b: 'na'},
-  'Score v3': {d: 'Fund-manager score (0-100) built from ALL 28 cheat-sheet parameters, each graded against its green / yellow / red zone. Pillars: Quality 28 · Growth 20 · Valuation 20 · Safety 17 · Shareholder & income 8 · Trend & liquidity 7. Red flags cap it (loss-making 35, heavy debt / weak interest cover 45, illiquid 40, P/E > 90 50).', b: 'up', i: '<b>Above 80</b> top-quality at a fair price, 65-80 solid, 50-65 average, below 50 weak or red-flagged.'},
-  'Quality (28)': {d: 'ROE (4-yr average, latest, worst year), operating & net margin (vs zones and vs sector peers), free-cash-flow yield.', b: 'up'},
-  'Growth (20)': {d: 'Revenue CAGR, profit CAGR (very high % from a weak base year is capped), forward P/E below trailing P/E (profits expected to rise).', b: 'up'},
-  'Valuation (20)': {d: 'P/E vs sector, P/E, PEG, EV/EBITDA, P/B (bank zones for financials, vs sector peers for others).', b: 'up'},
-  'Safety (17)': {d: 'Debt/equity and interest cover (not for financials), beta, volatility, 3-yr max drawdown, size.', b: 'up'},
-  'Shareholder (8)': {d: 'Dividend yield, payout ratio, promoter holding and its 1-yr change (not applied to widely-held companies with no promoter).', b: 'up'},
-  'Trend (7)': {d: 'Price vs 200-day average, distance from 52-week high (a quality stock 20-40% off its high scores well), daily turnover, 3-5 yr CAGR.', b: 'up'},
+  'Score v3': {d: 'Fund-manager score (0-100, v3.1) built from every cheat-sheet parameter PLUS returns, each graded against its green / yellow / red zone. Pillars: Quality 24 · Growth 17 · Valuation 16 · Safety 14 · Shareholder & income 6 · Returns & trend 23. Red flags cap it: loss-making 35, heavy debt / weak interest cover 45, illiquid 40, P/E > 90 50, negative returns on every horizon 50, 3Y and 5Y CAGR both below −5% 45, 1-year fall worse than −35% 60.', b: 'up', i: '<b>Above 80</b> strong business, fair price and rewarding shareholders; 65-80 solid; 50-65 average; below 50 weak, red-flagged or losing money for investors.'},
+  'Quality (24)': {d: 'ROE (4-yr average, latest, worst year), operating & net margin (vs zones and vs sector peers), free-cash-flow yield.', b: 'up'},
+  'Growth (17)': {d: 'Revenue CAGR, profit CAGR (very high % from a weak base year is capped), forward P/E below trailing P/E (profits expected to rise).', b: 'up'},
+  'Valuation (16)': {d: 'P/E vs sector, P/E, PEG, EV/EBITDA, P/B (bank zones for financials, vs sector peers for others).', b: 'up'},
+  'Safety (14)': {d: 'Debt/equity and interest cover (not for financials), beta, volatility, 3-yr max drawdown, size.', b: 'up'},
+  'Shareholder (6)': {d: 'Dividend yield, payout ratio, promoter holding and its 1-yr change (not applied to widely-held companies with no promoter).', b: 'up'},
+  'Returns (23)': {d: 'Has the stock actually made money? 1-yr return (5), 3-yr CAGR (6), 5-yr CAGR (5), 3-yr CAGR vs the Nifty 500 (2), price vs 200-day average (2), distance from 52-week high (1.5, quality-aware), daily turnover (1.5).', b: 'up', i: '3-5 yr CAGR above 15% and beating the Nifty 500 scores best; negative CAGR scores near zero and can trigger a cap.'},
   '1Y %': {d: 'Price return over the last 1 year (first trading day of Oct 2025 → 1 Oct 2026). Same dates for every stock and index in the app.', b: 'up'},
   '3Y %': {d: 'Total price return over 3 years (from Oct 2023). See 3Y CAGR % for the yearly rate.', b: 'up', i: '+40% in 3 years ≈ 12% a year.'},
   '5Y %': {d: 'Total price return over 5 years (from Oct 2021). See 5Y CAGR % for the yearly rate.', b: 'up', i: '+76% in 5 years ≈ 12% a year.'},
@@ -863,12 +906,13 @@ function Table(id, rowsFn, defCols, opts = {}) {
 }
 function rowHtml(r, T) {
   const s = r[SYM], sel = T.sel.has(s);
-  return `<tr data-sym="${esc(s)}" class="${sel ? 'sel' : ''}">` + T.cols.map(k => {
+  return `<tr data-sym="${esc(s)}" class="${sel ? 'sel' : ''}${rowMarkCls(s)}">` + T.cols.map(k => {
     if (k === '_chk') return `<td class="c"><input type="checkbox" data-sel ${sel ? 'checked' : ''} aria-label="Select ${esc(short(s))}"></td>`;
     if (k === '_asg') { const v = S.assign[s]; return `<td>${v ? `<button class="badge a${v.a}" data-a="asg" title="Move to another account / list">${esc(AN(v.a))} · ${esc(v.l)}</button>` : `<button class="badge none" data-a="asg">＋ Assign</button>`}</td>`; }
     if (k === '_list') { const v = S.assign[s]; return `<td>${v ? `<button class="badge a${v.a}" data-a="asg" title="Move to another account / list">${esc(v.l)}</button>` : ''}</td>`; }
     if (k === '_v3') { const x = val(r, '_v3'); return `<td class="num heat" style="${tint(x == null ? null : (x - 60) / 1.5)}">${x == null ? '–' : '<b>' + fmtN(x, 1) + '</b>'}</td>`; }
     if (k === '_star') return `<td>${esc(val(r, '_star'))}</td>`;
+    if (k === '_mark') { const m = markOf(s); return `<td>${m ? `<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${esc(MARKS[m].n)}` : ''}</td>`; }
     if (k === '_act') return `<td class="act"><button data-a="asg" title="Move to another account or list">⇄ Move</button><button class="danger" data-a="rm" title="Remove from this account">✕ Remove</button></td>`;
     const m = COLS[CI[k]], v = r[CI[k]];
     if (k === 'Symbol') return `<td class="sym" title="Click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span><span class="cap" style="margin-left:6px;font-weight:400">${esc(String(v).split(':')[0])}</span></td>`;
@@ -1025,7 +1069,7 @@ function stateMenu(anchor) {
     <button data-s="load">Load state from file…</button>
     <hr><button data-s="reset" class="danger">Reset to original lists</button>
     <hr><button data-s="theme">Toggle light / dark</button></div>`, p => {
-    p.querySelector('[data-s=save]').onclick = () => { closePop(); download(new Blob([JSON.stringify({app: 'portfolio-manager', v: 1, assign: S.assign, custom: S.custom, targets: S.targets, stars: S.stars}, null, 1)], {type: 'application/json'}), `portfolio_state_${stamp()}.json`); };
+    p.querySelector('[data-s=save]').onclick = () => { closePop(); download(new Blob([JSON.stringify({app: 'portfolio-manager', v: 1, assign: S.assign, custom: S.custom, targets: S.targets, stars: S.stars, doubts: S.doubts, rejects: S.rejects}, null, 1)], {type: 'application/json'}), `portfolio_state_${stamp()}.json`); };
     p.querySelector('[data-s=load]').onclick = () => { closePop(); document.getElementById('file').click(); };
     p.querySelector('[data-s=reset]').onclick = () => { closePop(); if (confirm('Reset all three accounts to the original lists? (You can still Undo.)')) commit('Reset to original lists', () => { S.assign = JSON.parse(JSON.stringify(D.assign0)); S.custom = []; reindex(); }); };
     p.querySelector('[data-s=theme]').onclick = () => {
@@ -1046,7 +1090,7 @@ document.getElementById('file').onchange = async e => {
       S.assign = {};
       for (const [s, v] of Object.entries(o.assign)) if (BY.has(s) && ACCS.includes(v.a) && LISTS.includes(v.l)) S.assign[s] = {a: v.a, l: v.l};
       if (o.targets) S.targets = Object.assign(S.targets, o.targets);
-      if (o.stars && typeof o.stars === 'object') S.stars = Object.fromEntries(Object.entries(o.stars).filter(([k]) => BY.has(k)));
+      for (const m of MK) { const x = o[MARKS[m].s]; if (x && typeof x === 'object') S[MARKS[m].s] = Object.fromEntries(Object.entries(x).filter(([k]) => BY.has(k))); }
     });
   } catch (err) { alert('Could not load that file: ' + err.message); }
 };
@@ -1211,7 +1255,7 @@ function drawDetail() {
 
   dEl.innerHTML = `<div class="modal dm" role="dialog" aria-modal="true" aria-label="${esc(base)} details">
     <div class="mh"><div class="ttl">
-        <h2>${starBtn(sym)}${esc(base)} <span class="cap">${esc(ex)}</span>${g('Cap Class') ? `<span class="cap ${esc(g('Cap Class'))}">${esc(g('Cap Class'))}</span>` : ''}${g('Nifty500') === 'Y' ? '<span class="cap">Nifty 500</span>' : ''}</h2>
+        <h2>${markBar(sym)}${esc(base)} <span class="cap">${esc(ex)}</span>${g('Cap Class') ? `<span class="cap ${esc(g('Cap Class'))}">${esc(g('Cap Class'))}</span>` : ''}${g('Nifty500') === 'Y' ? '<span class="cap">Nifty 500</span>' : ''}</h2>
         <div class="sub">${esc(g('Company'))}${String(g('Sector') || '').startsWith(type) ? '' : ' · ' + esc(type)}${g('Sector') ? ' · ' + esc(g('Sector')) : ''}${g('Industry') ? ' · ' + esc(g('Industry')) : ''}</div></div>
       <div class="nav"><button class="ghost" data-d="prev" ${idx <= 0 ? 'disabled' : ''} aria-label="Previous scrip" title="Previous (←)">‹</button>
         <button class="ghost" data-d="next" ${idx >= dCtx.list.length - 1 ? 'disabled' : ''} aria-label="Next scrip" title="Next (→)">›</button>
@@ -1242,7 +1286,7 @@ function drawDetail() {
 const view = document.getElementById('view');
 let tab = 'all';
 try { tab = sessionStorage.getItem(STORE + '-tab') || 'all'; } catch (e) {}
-const TABS = [['all', 'All Scrips'], ['board', 'Board'], ...ACCS.map(a => ['a' + a, AN(a)]), ['chg', 'Changes'], ...(D.bt ? [['bt', 'Backtest']] : []), ...(D.sec ? [['sec', 'Sectors']] : []), ...(D.picks ? [['picks', 'Sector Picks']] : []), ...(D.top10 ? [['top10', 'Sector Top 10']] : []), ...(D.n100 ? [['n100', 'Nifty 100']] : []), ['star', '★ Shortlist'], ['cmp', 'Compare'], ...(D.cheat ? [['cheat', 'Ratio Cheat Sheet']] : [])];
+const TABS = [['all', 'All Scrips'], ['board', 'Board'], ...ACCS.map(a => ['a' + a, AN(a)]), ['chg', 'Changes'], ...(D.bt ? [['bt', 'Backtest']] : []), ...(D.sec ? [['sec', 'Sectors']] : []), ...(D.picks ? [['picks', 'Sector Picks']] : []), ...(D.top10 ? [['top10', 'Sector Top 10']] : []), ...(D.n100 ? [['n100', 'Nifty 100']] : []), ['star', '★ ? ✗ Shortlist'], ['cmp', 'Compare'], ...(D.cheat ? [['cheat', 'Ratio Cheat Sheet']] : [])];
 function changes() {
   const out = [];
   const keys = new Set([...Object.keys(D.assign0), ...Object.keys(S.assign)]);
@@ -1260,7 +1304,7 @@ function renderTabs() {
     if (id === 'all') badge = ALL.length.toLocaleString('en-IN');
     else if (id[0] === 'a') badge = accRows(+id.slice(1)).length;
     else if (id === 'chg') badge = n;
-    else if (id === 'star') badge = Object.keys(S.stars || {}).length;
+    else if (id === 'star') badge = MK.reduce((n, m) => n + markCount(m), 0);
     const dot = id[0] === 'a' && id !== 'all' ? `<span class="dot" style="background:var(--a${id.slice(1)})"></span>` : '';
     return `<button role="tab" aria-selected="${id === tab}" data-t="${id}">${dot}${name}${badge !== '' ? `<span class="n">${badge}</span>` : ''}</button>`;
   }).join('');
@@ -1390,7 +1434,7 @@ const BT_CAT = new Set(['Horizon', 'Account', 'Portfolio', 'List', 'Sector', 'Ca
 const BTM = BT ? Object.fromEntries(BT.cols.map(k => [k, {k, t: BT_NUM[k] != null ? 'num' : BT_CAT.has(k) ? 'cat' : 'text', d: BT_NUM[k] ?? 2, g: 'Backtest columns'}])) : {};
 const BT_DEF = ['Account', 'Portfolio', 'List', 'Symbol', 'Company', 'Sector', 'Cap Class', 'Buy Date', 'Buy Price', 'Qty', 'Invested', 'Price Now', 'Value Now', 'Dividends', 'Final Wealth', 'P&L', 'Total Return %', 'CAGR %', 'Contribution %', 'Note'];
 function btRow(r, T) {
-  return `<tr data-sym="${esc(r.Symbol)}">` + T.cols.map(k => {
+  return `<tr data-sym="${esc(r.Symbol)}" class="${rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = r[k], m = BTM[k];
     if (k === 'Account') return `<td><span class="badge a${ACC_OF[v]}">${esc(v)}</span></td>`;
     if (k === 'Portfolio' || k === 'List' || k === 'Horizon') return `<td><span class="chip">${esc(v)}</span></td>`;
@@ -1690,7 +1734,7 @@ const PKM = Object.fromEntries(PK_COLS.map(k => [k, {k, t: PK_NUM.has(k) ? 'num'
 const PK_DEF = ['Rank', 'Symbol', 'Cap Class', 'Score', '1Y', '3Y', '5Y', '10Y', '15Y', '20Y', 'Since start', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %', 'Data since', 'Data notes'];
 function pkRow(r, T) {
   const isIdx = r._index;
-  return `<tr ${isIdx ? '' : `data-sym="${esc(r.Symbol)}"`} class="${isIdx ? 'idx gsep' : ''}">` + T.cols.map(k => {
+  return `<tr ${isIdx ? '' : `data-sym="${esc(r.Symbol)}"`} class="${isIdx ? 'idx gsep' : rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = pkVal(r, k), m = PKM[k];
     if (k === 'Symbol') return isIdx ? `<td class="sym">${esc(r.Symbol)} <small style="color:var(--muted);font-weight:400">· ${esc(r.Group)} index</small></td>` : `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(r.Symbol)}<span class="tk">${esc(short(r.Symbol))}</span></td>`;
     if (k === 'Company') return `<td class="co" title="${esc(v || '')}">${esc(v || '')}</td>`;
@@ -1755,9 +1799,14 @@ function mountCheat() {
 }
 
 // ---------- sector top 10 (v3 fund-manager score) ----------
-const T10 = D.top10 ? D.top10.rows.map(r => Object.fromEntries(D.top10.cols.map((c, i) => [c, r[i]]))) : null;
+const T10_ALL = D.top10 ? D.top10.rows.map(r => Object.fromEntries(D.top10.cols.map((c, i) => [c, r[i]]))) : null;   // every scored member, ranked
+const inTop = r => r['In top 10'] === true || r['In top 10'] === 'True';
+const clearsBar = r => r['Score v3'] != null && r['Score v3'] >= 50 && !r['Red flags'];
+const T10 = T10_ALL ? T10_ALL.filter(inTop) : null;
+let t10Below = false, n100All = false;
 const T10_SECTORS = T10 ? [...new Set(T10.map(r => r['Sector index']))] : [];
-const T10_PIL = ['Quality (28)', 'Growth (20)', 'Valuation (20)', 'Safety (17)', 'Shareholder (8)', 'Trend (7)'];
+const PIL_RX = /^(Quality|Growth|Valuation|Safety|Shareholder|Returns|Trend) \(\d+\)$/;
+const T10_PIL = D.top10 ? D.top10.cols.filter(c => PIL_RX.test(c)) : [];
 let t10Sec = T10_SECTORS[0] || '';
 const t10Nice = n => n.replace(/^NIFTY ?/, 'Nifty ').replace(/\b([A-Z])([A-Z&/\-.]+)\b/g, (m, a, b) => /^(IT|PSU|FMCG|REITS|EX-BANK)$/.test(m) ? m : a + b.toLowerCase());
 // "All sectors" view: one row per stock (its best-ranked sector row), with how many lists it appears in
@@ -1777,7 +1826,7 @@ const T10_NUM = new Set([...RET_COLS, 'Overall rank', 'Best rank', 'Sector lists
 const T10M = T10 ? Object.fromEntries(D.top10.cols.map(k => [k, {k, t: T10_NUM.has(k) ? 'num' : ['Sector index', 'Cap Class', 'Sector', 'Industry', 'In your lists'].includes(k) ? 'cat' : 'text', d: ['Rank', 'Params used', 'Members', 'Members scored', 'Market Cap (Cr)'].includes(k) ? 0 : 1, g: T10_PIL.includes(k) || /Score/.test(k) ? 'Score' : 'Fundamentals & notes'}])) : {};
 const T10_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '3Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Cap Class', 'In your lists', 'Score v2 (portfolio screen)'];
 function t10Row(r, T) {
-  return `<tr data-sym="${esc(r.Symbol)}">` + T.cols.map(k => {
+  return `<tr data-sym="${esc(r.Symbol)}" class="${rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = r[k], m = T10M[k];
     if (k === 'Symbol') { const n = r._n ?? r['Sector lists'], lists = r._lists ?? r['In sector lists']; return `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span>${n > 1 ? `<span class="cnt" title="In ${n} sector lists: ${esc(lists || '')}">×${n}</span>` : ''}</td>`; }
     if (k === 'Cap Class') return `<td>${v ? `<span class="cap ${esc(v)}">${esc(v)}</span>` : ''}</td>`;
@@ -1786,6 +1835,7 @@ function t10Row(r, T) {
     if (RET_COLS.includes(k)) { if (v == null) return `<td class="num na" title="${esc(r['Returns note'] || 'no data')}">–</td>`; const cg = k === '1Y %' ? v : r[k.replace(' %', ' CAGR %').replace('CAGR CAGR', 'CAGR')]; return `<td class="num heat" style="${tint(cg)}">${pc(v)}</td>`; }
     if (k === 'In sector lists') return `<td style="white-space:normal;min-width:240px;max-width:340px;font-size:12px;line-height:1.35">${esc(v || '')}</td>`;
     if (T10_PIL.includes(k)) { const max = +k.match(/\((\d+)\)/)[1]; return `<td class="num" title="${v == null ? 'n/a' : fmtN(v, 1) + ' of ' + max}">${v == null ? '–' : `${fmtN(v, 1)}<small style="color:var(--faint)">/${max}</small>`}</td>`; }
+    if (k === 'Why this rank' && (r._extra || r._below) && !String(v || '').startsWith('★')) return `<td style="white-space:normal;min-width:220px;max-width:340px;font-size:12px;line-height:1.35">${r._extra ? '<span class="cnt" style="margin:0 6px 0 0">★ your pick</span>' : ''}${r._below ? `<span style="color:var(--neg)">Below the bar</span> (${r['Red flags'] ? 'red flag' : 'score ' + fmtN(r['Score v3'], 1) + ' &lt; 50'}) · ` : 'outside the top 10 · '}sector rank #${r.Rank}</td>`;
     if (['Why this rank', 'Strengths', 'Weaknesses', 'Red flags', 'Notes'].includes(k)) {
       const pre = k === 'Strengths' ? '✓ ' : k === 'Weaknesses' ? '✗ ' : k === 'Red flags' ? '⚠ ' : '';
       const col = k === 'Strengths' ? 'var(--pos)' : k === 'Weaknesses' || k === 'Red flags' ? 'var(--neg)' : 'var(--text)';
@@ -1797,7 +1847,13 @@ function t10Row(r, T) {
 }
 function mountTop10() {
   if (!T10) { view.innerHTML = '<div class="empty">No v3 sector ranking in this build - run pipeline step 17, then 18.</div>'; return; }
-  const rowsFn = () => t10Sec ? T10.filter(r => r['Sector index'] === t10Sec) : T10_UNIQ;
+  const rowsFn = () => {
+    if (t10Sec) return [...T10.filter(r => r['Sector index'] === t10Sec), ...T10_ALL.filter(r => r['Sector index'] === t10Sec && !inTop(r) && (t10Below || isStar(r.Symbol))).map(r => ({...r, _extra: isStar(r.Symbol), _below: !clearsBar(r)}))];
+    const inU = new Set(T10_UNIQ.map(r => r.Symbol)), best = new Map();
+    for (const r of T10_ALL) if (!inU.has(r.Symbol) && !inTop(r) && isStar(r.Symbol)) { const b = best.get(r.Symbol); if (!b || r.Rank < b.Rank) best.set(r.Symbol, r); }
+    const extra = [...best.values()].map(r => ({...r, _extra: true, 'Why this rank': `★ your shortlist — outside every top 10 (best: ${t10Nice(r['Sector index'])} #${r.Rank})`}));
+    return [...T10_UNIQ, ...extra];
+  };
   const T = tables.top10 || Table('top10', rowsFn, T10_DEF, {
     meta: k => T10M[k], val: (r, k) => r[k], key: r => r['Sector index'] + '|' + r.Symbol, row: t10Row, ps: 250, pick: D.top10.cols.map(k => T10M[k]),
     hay: r => [r.Symbol, r.Company, r['Sector index'], r.Strengths, r.Weaknesses, r['Red flags']].join(' '), noun: 'stocks', placeholder: 'Search stock, strength or weakness…', freeze: 'Symbol',
@@ -1810,21 +1866,23 @@ function mountTop10() {
       <select data-t10 aria-label="Sector index" style="min-width:280px"><option value="">All 23 sectors (${T10_UNIQ.length} unique stocks)</option>${T10_SECTORS.map(s0 => `<option value="${esc(s0)}" ${s0 === t10Sec ? 'selected' : ''}>${esc(nice(s0))} (${T10.find(r => r['Sector index'] === s0).Members})</option>`).join('')}</select></label>
       <span class="grow"></span><span class="count">${t10Sec ? `${first['Members scored']} of ${first.Members} members scored · ${esc(first['Membership source'] || '')}` : `${T10_UNIQ.length} unique stocks from ${T10.length} sector-list entries · ×n = in n lists`}</span><button data-t10dl>⬇ CSV</button></div>
     <div class="note warn" style="margin:0 0 12px">A rules-based screen, not personal advice. Professional managers also weigh management quality, promoter pledges, bank NPAs, order books and valuation history - none of which is in this data. Use the reasons to decide what to research next.</div>
-    <div class="panel"><h3>${t10Sec ? esc(nice(t10Sec)) + ' — top ' + Math.min(10, rowsFn().length) : 'All sectors — unique stocks, best first'}${ii('Score v3')}</h3><div class="sub">Ranked by the v3 fund-manager score (all 28 cheat-sheet parameters). Pillar columns show points earned out of their weight. Click a stock for its full fundamentals; hover ⓘ for definitions.${t10Sec && first['Not scored (outside Nifty 500 data)'] ? ' Not scored (no fundamentals in the data): ' + esc(first['Not scored (outside Nifty 500 data)']) + '.' : ''}</div><div data-t10t></div></div>
+    <div class="panel"><h3>${t10Sec ? esc(nice(t10Sec)) + ' — top ' + T10.filter(r => r['Sector index'] === t10Sec).length + (T10.filter(r => r['Sector index'] === t10Sec).length < 10 ? ` <small style="font-weight:400;color:var(--muted)">(only ${T10.filter(r => r['Sector index'] === t10Sec).length} of ${first['Members scored']} clear the bar)</small>` : '') : 'All sectors — unique stocks, best first'}${ii('Score v3')}</h3><div class="sub">Ranked by the v3.1 fund-manager score (all cheat-sheet parameters + returns). A stock needs <b>v3 ≥ 50 and no red flags</b> to make a list, so weak sectors show fewer than 10. Your ★ shortlisted stocks are always added at the end, marked “★ your pick”.${t10Sec ? ` <label style="margin-left:8px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-below ${t10Below ? 'checked' : ''}> Show members below the bar</label>` : ''} Pillar columns show points earned out of their weight. Click a stock for its full fundamentals; hover ⓘ for definitions.${t10Sec && first['Not scored (outside Nifty 500 data)'] ? ' Not scored (no fundamentals in the data): ' + esc(first['Not scored (outside Nifty 500 data)']) + '.' : ''}</div><div data-t10t></div></div>
     <details class="panel method"><summary>How the v3 score works</summary>
-      <p>Built the way a long-only, quality-at-a-reasonable-price fund manager ranks stocks <i>within</i> a sector. Every parameter on the Ratio Cheat Sheet is graded 0-1 against its green / yellow / red zone (smoothly between zone edges); “compare within the sector” items blend the absolute zone with the stock's rank among sector peers.</p>
-      <table class="mini" style="min-width:0"><thead><tr><th>Pillar</th><th>Weight</th><th>Parameters (all 28 cheat-sheet items)</th></tr></thead><tbody>
-        <tr><td>Quality</td><td>28</td><td style="white-space:normal">ROE 4-yr avg (8), ROE latest (4), ROE worst year (3), operating margin (5), net margin (4), FCF yield (4)</td></tr>
-        <tr><td>Growth</td><td>20</td><td style="white-space:normal">Revenue CAGR (8), profit CAGR (8, capped when &gt; 60% from a weak base), forward vs trailing P/E (4)</td></tr>
-        <tr><td>Valuation</td><td>20</td><td style="white-space:normal">P/E vs sector (6), P/E (3), PEG (4), EV/EBITDA (3), P/B (4)</td></tr>
-        <tr><td>Safety</td><td>17</td><td style="white-space:normal">Debt/equity (5), interest cover (4), beta (2), volatility (2), 3-yr max drawdown (2), size / market cap (2)</td></tr>
-        <tr><td>Shareholder &amp; income</td><td>8</td><td style="white-space:normal">Dividend yield (3), payout ratio (2), promoter holding (2), promoter change (1)</td></tr>
-        <tr><td>Trend &amp; liquidity</td><td>7</td><td style="white-space:normal">Price vs 200-DMA (2), % below 52-week high (1.5, quality-aware), turnover/day (2), 3-5 yr CAGR (1.5)</td></tr></tbody></table>
+      <p>Built the way a long-only, quality-at-a-reasonable-price fund manager ranks stocks <i>within</i> a sector - and, since the goal is profit, it also checks that the stock has actually rewarded shareholders. Every parameter on the Ratio Cheat Sheet is graded 0-1 against its green / yellow / red zone (smoothly between zone edges); “compare within the sector” items blend the absolute zone with the stock's rank among sector peers.</p>
+      <table class="mini" style="min-width:0"><thead><tr><th>Pillar</th><th>Weight</th><th>Parameters (all cheat-sheet items + returns)</th></tr></thead><tbody>
+        <tr><td>Quality</td><td>24</td><td style="white-space:normal">ROE 4-yr avg, ROE latest, ROE worst year, operating margin, net margin, FCF yield</td></tr>
+        <tr><td>Growth</td><td>17</td><td style="white-space:normal">Revenue CAGR, profit CAGR (capped when &gt; 60% from a weak base), forward vs trailing P/E</td></tr>
+        <tr><td>Valuation</td><td>16</td><td style="white-space:normal">P/E vs sector, P/E, PEG, EV/EBITDA, P/B</td></tr>
+        <tr><td>Safety</td><td>14</td><td style="white-space:normal">Debt/equity, interest cover, beta, volatility, 3-yr max drawdown, size / market cap</td></tr>
+        <tr><td>Shareholder &amp; income</td><td>6</td><td style="white-space:normal">Dividend yield, payout ratio, promoter holding, promoter change</td></tr>
+        <tr><td><b>Returns &amp; trend</b></td><td><b>23</b></td><td style="white-space:normal"><b>1-yr return (5), 3-yr CAGR (6), 5-yr CAGR (5), 3-yr CAGR vs Nifty 500 (2)</b>, price vs 200-DMA (2), % below 52-week high (1.5, quality-aware), turnover/day (1.5)</td></tr></tbody></table>
       <ul><li><b>Financials</b> (banks, NBFCs, insurers, AMCs): debt/equity, interest cover, EV/EBITDA, FCF and operating margin don't apply; P/B uses bank zones (1-2 good, &gt; 4 or &lt; 0.7 check).</li>
         <li><b>Missing data</b> never counts as zero: the parameter drops out and its pillar is re-weighted. Widely-held companies with no promoter (ICICI, HDFC Bank, Axis…) skip the promoter checks.</li>
-        <li><b>Red-flag caps</b>: loss-making → max 35 · losses in more than one recent year → 45 · D/E &gt; 150 or interest cover &lt; 2 (non-financials) → 45 · promoter &lt; 20% and selling &gt; 5 pts → 45 · turnover &lt; ₹10 lakh/day → 40 · P/E &gt; 90 → 50.</li>
+        <li><b>Red-flag caps</b>: loss-making → max 35 · losses in more than one recent year → 45 · D/E &gt; 150 or interest cover &lt; 2 (non-financials) → 45 · promoter &lt; 20% and selling &gt; 5 pts → 45 · turnover &lt; ₹10 lakh/day → 40 · P/E &gt; 90 → 50 · <b>negative 1Y, 3Y and 5Y returns → 50 · 3Y and 5Y CAGR both below −5% → 45 · 1-year fall worse than −35% → 60</b>.</li>
+        <li><b>v3.1 (5 Oct 2026)</b>: returns became a 23-point pillar after stocks that had lost money for 3-5 years were still scoring 70+ on fundamentals alone.</li>
         <li>Data: Nifty 500 fundamentals and prices as of 1 Oct 2026 (Yahoo Finance + NSE). Sector membership from NSE's official constituent files (19 indices); Chemicals, Nifty500 Healthcare, REITs &amp; Realty and Cement derived from NSE sector/industry.</li></ul></details>`;
   view.querySelector('[data-t10]').onchange = e => { t10Sec = e.target.value; T.page = 0; mountTop10(); };
+  const bl = view.querySelector('[data-below]'); if (bl) bl.onchange = () => { t10Below = bl.checked; mountTop10(); };
   view.querySelector('[data-t10dl]').onclick = () => download(new Blob([csv(T10, D.top10.cols, [], (r, k) => r[k], k => k)], {type: 'text/csv'}), `Sector_Top10_v3_${stamp()}.csv`);
   T.mount(view.querySelector('[data-t10t]'));
 }
@@ -1835,10 +1893,12 @@ const N100M = N100 ? Object.fromEntries(D.n100.cols.map(k => [k, {k, t: T10_NUM.
 const N100_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '3Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Sector', 'In sector lists', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %'];
 function mountN100() {
   if (!N100) { view.innerHTML = '<div class="empty">No Nifty 100 ranking in this build - run pipeline step 17, then 18.</div>'; return; }
-  const T = tables.n100 || Table('n100', () => N100, N100_DEF, {
+  const n100Rows = () => n100All ? N100 : N100.filter(r => clearsBar(r) || isStar(r.Symbol));
+  const T = tables.n100 || Table('n100', n100Rows, N100_DEF, {
     meta: k => N100M[k], val: (r, k) => r[k], key: r => r.Symbol, row: t10Row, ps: 100, pick: D.n100.cols.map(k => N100M[k]), freeze: 'Symbol', noun: 'stocks',
     hay: r => [r.Symbol, r.Company, r.Sector, r.Strengths, r.Weaknesses, r['Red flags']].join(' '), placeholder: 'Search stock, sector or strength…',
   });
+  T.rowsFn = n100Rows;
   const avg = k => { const x = N100.map(r => r[k]).filter(v => v != null); return x.length ? x.reduce((p, q) => p + q, 0) / x.length : null; };
   const ix = SEC ? SEC.find(r => r.Index === 'Nifty 100') : null;
   const held = N100.filter(r => r['In your lists']).length, flagged = N100.filter(r => r['Red flags']).length, strong = N100.filter(r => r['Score v3'] >= 80).length;
@@ -1851,34 +1911,52 @@ function mountN100() {
       ${tile('Already in your accounts', held, `${N100.length - held} not held`)}
       ${tile('Avg 1Y / 3Y / 5Y', `${pc(avg('1Y %'), 0)} / ${pc(avg('3Y %'), 0)} / ${pc(avg('5Y %'), 0)}`, ix ? `Nifty 100 index ${pc(ix['1Y %'], 0)} / ${pc(ix['3Y %'], 0)} / ${pc(ix['5Y %'], 0)}` : 'equal-weight average of members')}
     </div>
-    <div class="note warn" style="margin:0 0 12px">A rules-based screen, not personal advice - same v3 method as Sector Top 10 (all 28 cheat-sheet parameters, red-flag caps). Management quality, promoter pledges and bank NPAs are not in this data.</div>
-    <div class="panel"><h3>Nifty 100 — ranked by v3 fund-manager score${ii('Score v3')}</h3><div class="sub">All 100 members (NSE's official list), best first. Same columns and reasons as Sector Top 10; “In sector lists” shows where a stock also made a sector top 10. Filter by Sector in the column header; click a stock for full details.</div><div data-n100t></div></div>`;
+    <div class="note warn" style="margin:0 0 12px">A rules-based screen, not personal advice - same v3.1 method as Sector Top 10 (all cheat-sheet parameters + returns, red-flag caps). Management quality, promoter pledges and bank NPAs are not in this data.</div>
+    <div class="panel"><h3>Nifty 100 — ranked by v3 fund-manager score${ii('Score v3')}</h3><div class="sub">${n100All ? 'All 100 members' : `${N100.filter(clearsBar).length} of 100 members clear the bar (v3 ≥ 50, no red flags)`}, best first. <label style="cursor:pointer"><input type="checkbox" data-n100all ${n100All ? 'checked' : ''}> Show all 100 (incl. below the bar)</label> · Same columns and reasons as Sector Top 10; “In sector lists” shows where a stock also made a sector top 10. Filter by Sector in the column header; click a stock for full details.</div><div data-n100t></div></div>`;
   T.mount(view.querySelector('[data-n100t]'));
+  view.querySelector('[data-n100all]').onchange = e => { n100All = e.target.checked; T.page = 0; mountN100(); };
 }
 
-// ---------- shortlist: starred stocks, ready to be divided into the accounts ----------
+// ---------- shortlist: ★ shortlisted / ? doubtful / ✗ rejected stocks, ready to be decided and divided into the accounts ----------
 VIRT._v3 = {k: '_v3', label: 'Score v3', t: 'num', g: 'Portfolio'};
-VIRT._star = {k: '_star', label: 'Starred on', t: 'text', g: 'Portfolio'};
-const DEF_STAR = ['_chk', '_asg', 'Symbol', 'Company', 'Sector', 'Cap Class', '_v3', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Price', 'P/E', 'PE vs sector', 'ROE % (avg 4y)', 'Profit CAGR %', 'Debt/Equity', 'Dividend Yield %', 'Market Cap (Cr)'];
+VIRT._star = {k: '_star', label: 'Marked on', t: 'text', g: 'Portfolio'};
+VIRT._mark = {k: '_mark', label: 'Mark', t: 'cat', g: 'Portfolio'};
+const DEF_STAR = ['_chk', '_mark', '_asg', 'Symbol', 'Company', 'Sector', 'Cap Class', '_v3', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Price', 'P/E', 'PE vs sector', 'ROE % (avg 4y)', 'Profit CAGR %', 'Debt/Equity', 'Dividend Yield %', 'Market Cap (Cr)', '_star'];
+let stView = 'star';
+try { stView = sessionStorage.getItem(STORE + '-stview') || 'star'; } catch (e) {}
 function mountShortlist() {
-  const rowsFn = () => Object.keys(S.stars).map(s0 => BY.get(s0)).filter(Boolean).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
-  const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'starred stocks', empty: 'No starred stocks yet — click ☆ next to any stock in any tab (or in its popup) to shortlist it.',
-    extraTools: `<button data-r="cmpsel" title="Open the selected (or all, if none selected) in Compare - up to 10">⚖ Compare</button><button data-r="unstar" title="Remove the selected stocks from the shortlist">☆ Unstar selected</button><button class="ghost danger" data-r="clearstars">Clear shortlist</button>`});
-  T.rowsFn = rowsFn;
+  if (stView !== 'all' && !MARKS[stView]) stView = 'star';
+  const marked = m => Object.keys(S[MARKS[m].s]);
+  const rowsFn = () => (stView === 'all' ? MK.flatMap(marked) : marked(stView)).map(s0 => BY.get(s0)).filter(Boolean).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
+  const noun = stView === 'all' ? 'marked stocks' : MARKS[stView].n.toLowerCase() + ' stocks';
+  const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'marked stocks', empty: '',
+    extraTools: `<span style="color:var(--muted);font-size:12.5px;margin-left:4px">Selected →</span>${MK.map(m => `<button data-mv="${m}" title="Mark the ticked stocks ${MARKS[m].n.toLowerCase()}"><b class="st on ${m}" style="padding:0 3px 0 0">${MARKS[m].i}</b>${MARKS[m].v}</button>`).join('')}<button data-mv="" title="Remove the mark from the ticked stocks">Clear mark</button><button data-r="cmpsel" title="Open the selected (or all in this view, if none selected) in Compare - up to 10">⚖ Compare</button><button class="ghost danger" data-r="clearstars">Clear list</button>`});
+  T.rowsFn = rowsFn; T.opts.noun = noun;
+  T.opts.empty = stView === 'all' ? 'Nothing marked yet — click ☆ next to any stock in any tab (or use ★ ? ✗ in its popup).' : `No ${MARKS[stView].n.toLowerCase()} stocks — click ☆ next to any stock in any tab and choose ${MARKS[stView].i} ${MARKS[stView].v}.`;
   const rows = rowsFn(), cnt = {}; let free = 0;
-  for (const r of rows) { const v = S.assign[r[SYM]]; if (v) cnt[v.a] = (cnt[v.a] || 0) + 1; else free++; }
+  const stars = marked('star').map(s0 => BY.get(s0)).filter(Boolean);
+  for (const r of stars) { const v = S.assign[r[SYM]]; if (v) cnt[v.a] = (cnt[v.a] || 0) + 1; else free++; }
   const tile = (k, v, sub) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub || ''}</div></div>`;
+  const segs = [...MK.map(m => [m, `<span class="ic ${m}">${MARKS[m].i}</span>${MARKS[m].n}`, markCount(m)]), ['all', 'All marked', MK.reduce((n, m) => n + markCount(m), 0)]];
   view.innerHTML = `
-    <div class="tiles">${tile('★ Shortlisted', rows.length, 'starred across all tabs')}${tile('Not yet in an account', free, 'tick them below → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from this shortlist')).join('')}</div>
-    <div class="panel"><h3>★ Shortlist — sorted by v3 score${ii('Score v3')}</h3><div class="sub">Tick stocks and use <b>Assign to…</b> to divide them between PEW-Angel, JPW-Angel and JPW-Zerodha (Active / To Invest / ETF·SGB), or <b>⚖ Compare</b> up to 10 side by side. Click a stock for full details; ☆ removes it from the shortlist.</div><div data-stt></div></div>`;
+    <div class="tiles">${MK.map(m => tile(`<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${MARKS[m].n}`, markCount(m), {star: 'your picks', doubt: 'need a closer look', rej: 'decided against (dimmed in every tab)'}[m])).join('')}${tile('★ not yet in an account', free, 'tick them below → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from the ★ shortlist')).join('')}</div>
+    <div class="panel"><h3>${stView === 'all' ? 'All marked stocks' : `${MARKS[stView].i} ${MARKS[stView].n}`} — sorted by v3 score${ii('Score v3')}</h3>
+      <div class="mseg" data-stv>${segs.map(([id, l, n]) => `<button aria-pressed="${id === stView}" data-v="${id}">${l}<span class="n">${n}</span></button>`).join('')}</div>
+      <div class="sub">Mark any stock in any tab with ☆ → <b>★ Shortlist</b>, <b>? Doubtful</b> or <b>✗ Reject</b> (or the ★ ? ✗ buttons in its popup). Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Angel, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
   T.mount(view.querySelector('[data-stt]'));
-  const sel = () => [...T.sel].filter(s0 => S.stars[s0]);
+  view.querySelector('[data-stv]').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === stView) return; stView = b.dataset.v; try { sessionStorage.setItem(STORE + '-stview', stView); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
+  const sel = () => [...T.sel].filter(s0 => markOf(s0));
   T.el.querySelector('[data-r=cmpsel]').onclick = () => { const pick = (sel().length ? sel() : rows.map(r => r[SYM])).slice(0, 10); if (!pick.length) return; S.cmp = pick; save(); tab = 'cmp'; try { sessionStorage.setItem(STORE + '-tab', tab); } catch (e) {} renderTabs(); mountView(); };
-  T.el.querySelector('[data-r=unstar]').onclick = () => { const p = sel(); if (!p.length) return toast('Tick the stocks to unstar first', false); p.forEach(s0 => delete S.stars[s0]); T.sel.clear(); save(); renderTabs(); mountShortlist(); toast(`Removed ${p.length} from the shortlist`, false); };
-  T.el.querySelector('[data-r=clearstars]').onclick = () => {
-    const b = T.el.querySelector('[data-r=clearstars]');
-    if (b.dataset.armed) { S.stars = {}; T.sel.clear(); save(); renderTabs(); mountShortlist(); toast('Shortlist cleared', false); }
-    else { b.dataset.armed = '1'; b.textContent = 'Click again to clear all'; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Clear shortlist'; } }, 3000); }
+  T.el.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => {
+    const p = sel(), m = b.dataset.mv; if (!p.length) return toast('Tick the stocks to move first', false);
+    for (const s0 of p) { for (const k of MK) delete S[MARKS[k].s][s0]; if (m) S[MARKS[m].s][s0] = Date.now(); }
+    T.sel.clear(); save(); renderTabs(); mountShortlist(); toast(m ? `${p.length} marked ${MARKS[m].i} ${MARKS[m].n.toLowerCase()}` : `Cleared the mark on ${p.length}`, false);
+  });
+  const cb = T.el.querySelector('[data-r=clearstars]'), cbLab = stView === 'all' ? 'Clear all marks' : `Clear ${MARKS[stView].n.toLowerCase()} list`;
+  cb.textContent = cbLab;
+  cb.onclick = () => {
+    if (cb.dataset.armed) { for (const m of (stView === 'all' ? MK : [stView])) S[MARKS[m].s] = {}; T.sel.clear(); save(); renderTabs(); mountShortlist(); toast(cbLab.replace('Clear', 'Cleared'), false); }
+    else { cb.dataset.armed = '1'; cb.textContent = 'Click again to confirm'; setTimeout(() => { if (cb.isConnected) { delete cb.dataset.armed; cb.textContent = cbLab; } }, 3000); }
   };
 }
 
@@ -1892,9 +1970,7 @@ const CMP_ROWS = [
   ['Company', 'Company', 'u', 't'], ['Sector', 'Sector', 'u', 't'], ['Industry', 'Industry', 'u', 't'], ['Cap class', 'Cap Class', 'u', 't'],
   ['In your accounts', '_held', 'x', 't'], ['Sector top-10 lists', '_lists', 'x', 't'], ['Nifty 100 rank', '_n100', 'x', 0, 'down'],
   ['Scores'],
-  ['v3 fund-manager score', 'Score v3', 'v', 1, 'up', 100], ['Quality (28)', 'Quality (28)', 'v', 1, 'up', 28], ['Growth (20)', 'Growth (20)', 'v', 1, 'up', 20],
-  ['Valuation (20)', 'Valuation (20)', 'v', 1, 'up', 20], ['Safety (17)', 'Safety (17)', 'v', 1, 'up', 17], ['Shareholder (8)', 'Shareholder (8)', 'v', 1, 'up', 8],
-  ['Trend (7)', 'Trend (7)', 'v', 1, 'up', 7], ['v2 portfolio-screen score', 'Score', 'u', 0, 'up'],
+  ['v3 fund-manager score', 'Score v3', 'v', 1, 'up', 100], ...(D.v3all ? D.v3all.cols.filter(c => PIL_RX.test(c)).map(c => [c, c, 'v', 1, 'up', +c.match(/\((\d+)\)/)[1]]) : []), ['v2 portfolio-screen score', 'Score', 'u', 0, 'up'],
   ['Returns (price, same dates as every tab)'],
   ['1Y %', '1Y %', 'v', 1, 'up'], ['3Y %', '3Y %', 'v', 1, 'up'], ['5Y %', '5Y %', 'v', 1, 'up'], ['3Y CAGR %', '3Y CAGR %', 'v', 1, 'up'], ['5Y CAGR %', '5Y CAGR %', 'v', 1, 'up'],
   ['Valuation'],
@@ -2124,14 +2200,18 @@ if (TEST) {
     tab = 'top10'; mountView();
     ok(T10_SECTORS.length === 23 && tables.top10.filtered().length <= 10 && tables.top10.filtered().every((r, i) => r.Rank === i + 1), 'top10: 23 sectors, first sector ranked 1..n');
     const sel = view.querySelector('[data-t10]'); sel.value = 'NIFTY BANK'; sel.dispatchEvent(new Event('change'));
-    const b = tables.top10.filtered(); ok(b.length === 10 && b.every(r => r['Sector index'] === 'NIFTY BANK') && b.every((r, i, x) => !i || x[i - 1]['Score v3'] >= r['Score v3']) && b.every(r => r['Why this rank']), 'top10: sector switch, sorted by v3, every row has a reason');
+    const b = tables.top10.filtered(); ok(b.length >= 5 && b.length <= 10 && b.every(clearsBar) && b.every(r => r['Sector index'] === 'NIFTY BANK') && b.every((r, i, x) => !i || x[i - 1]['Score v3'] >= r['Score v3']) && b.every(r => r['Why this rank']), 'top10: sector switch, sorted by v3, every row has a reason');
     sel.value = ''; sel.dispatchEvent(new Event('change'));
     const u = tables.top10.filtered(); ok(u.length === new Set(T10.map(r => r.Symbol)).size && new Set(u.map(r => r.Symbol)).size === u.length && u.some(r => r._n > 1) && view.querySelector('.cnt'), 'top10: All = unique stocks with ×n multi-list badge');
+    const out10 = T10_ALL.find(r => !inTop(r)); const keepStars = S.stars; S.stars = {}; toggleStar(out10.Symbol, true);
+    t10Sec = out10['Sector index']; mountView(); const ex = tables.top10.filtered();
+    ok(ex.some(r => r._extra && r.Symbol === out10.Symbol) && ex.filter(r => !r._extra).length <= 10 && view.textContent.includes('your pick'), 'top10: a starred stock outside the top 10 is still listed, marked ★ your pick');
+    S.stars = keepStars;
     t10Sec = T10_SECTORS[0]; tab = 'all'; mountView();
   }
   if (N100) {
     tab = 'n100'; mountView(); const nr = tables.n100.filtered();
-    ok(nr.length === N100.length && N100.length >= 95 && nr.every((r, i, x) => !i || x[i - 1]['Score v3'] >= r['Score v3']) && nr.every(r => r['Why this rank']) && view.querySelector('[data-tbl="n100"] th[data-k="5Y %"]'), 'nifty 100: all members ranked by v3 with reasons + 1/3/5Y');
+    ok(nr.length === N100.filter(clearsBar).length && nr.every(clearsBar) && N100.length >= 95 && nr.every((r, i, x) => !i || x[i - 1]['Score v3'] >= r['Score v3']) && nr.every(r => r['Why this rank']) && view.querySelector('[data-tbl="n100"] th[data-k="5Y %"]'), 'nifty 100: all members ranked by v3 with reasons + 1/3/5Y');
     tab = 'all'; mountView();
   }
   {
@@ -2144,14 +2224,26 @@ if (TEST) {
     S.cmp = keep; tab = 'all'; mountView();
   }
   {
-    const keepS = S.stars; S.stars = {};
+    const keepS = [S.stars, S.doubts, S.rejects]; S.stars = {}; S.doubts = {}; S.rejects = {}; const keepV = stView; stView = 'star';
     tab = 'all'; mountView(); const btn = view.querySelector('[data-tbl="all"] [data-star]'); const sym0 = btn.dataset.star; btn.click();
-    ok(isStar(sym0) && btn.textContent === '★' && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '1', 'star: ☆ in a table row toggles and updates the tab count');
-    toggleStar('NSE:TCS', true); toggleStar('NSE:INFY', true); tab = 'star'; mountView();
-    ok(tables.star.filtered().length === 3 && view.querySelector('[data-tbl="star"] [data-r="cmpsel"]'), 'shortlist: lists starred stocks with Compare / Unstar actions');
-    tables.star.sel.add('NSE:TCS'); assignTo(['NSE:TCS'], 2, 'Active');
-    ok(S.assign['NSE:TCS'] && S.assign['NSE:TCS'].a === 2 && view.textContent.includes('Not yet in an account'), 'shortlist: assign from shortlist into an account'); undo();
-    S.stars = keepS; tables.star.sel.clear(); tab = 'all'; mountView();
+    ok(popEl && popEl.querySelectorAll('[data-pm]').length === 3, 'mark: ☆ in a table row opens the ★ ? ✗ picker');
+    popEl.querySelector('[data-pm="star"]').click();
+    ok(isStar(sym0) && btn.textContent === '★' && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '1', 'mark: ★ picked from the row picker updates the icon and tab count');
+    btn.click(); popEl.querySelector('[data-pm="rej"]').click();
+    ok(!isStar(sym0) && markOf(sym0) === 'rej' && btn.textContent === '✗' && btn.closest('tr').classList.contains('rej'), 'mark: switching to ✗ replaces ★ and dims the row');
+    setMark('NSE:TCS', 'star'); setMark('NSE:INFY', 'star'); setMark('NSE:WIPRO', 'doubt'); setMark(sym0, ''); toggleStar('NSE:HCLTECH', true); tab = 'star'; mountView();
+    ok(tables.star.filtered().length === 3 && view.querySelector('[data-tbl="star"] [data-r="cmpsel"]') && view.querySelectorAll('[data-tbl="star"] [data-mv]').length === 4, 'shortlist: ★ view lists shortlisted stocks with move / Compare actions');
+    view.querySelector('[data-stv] [data-v="doubt"]').click();
+    ok(tables.star.filtered().length === 1 && tables.star.filtered()[0][SYM] === 'NSE:WIPRO', 'shortlist: ? view lists doubtful stocks');
+    tables.star.sel.add('NSE:WIPRO'); view.querySelector('[data-tbl="star"] [data-mv="rej"]').click();
+    ok(markOf('NSE:WIPRO') === 'rej' && tables.star.filtered().length === 0, 'shortlist: bulk move ? → ✗');
+    view.querySelector('[data-stv] [data-v="all"]').click();
+    ok(tables.star.filtered().length === 4 && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '4', 'shortlist: All marked view + tab count cover ★ ? ✗');
+    openDetail('NSE:INFY', ['NSE:INFY']); dEl.querySelector('[data-mark="doubt"]').click();
+    ok(markOf('NSE:INFY') === 'doubt' && dEl.querySelector('[data-mark="doubt"]').classList.contains('on'), 'mark: ★ ? ✗ buttons in the stock popup'); closeDetail();
+    stView = 'star'; mountView(); tables.star.sel.add('NSE:TCS'); assignTo(['NSE:TCS'], 2, 'Active');
+    ok(S.assign['NSE:TCS'] && S.assign['NSE:TCS'].a === 2 && view.textContent.includes('not yet in an account'), 'shortlist: assign from shortlist into an account'); undo();
+    [S.stars, S.doubts, S.rejects] = keepS; stView = keepV; tables.star.sel.clear(); tab = 'all'; mountView();
   }
   if (D.cheat) {
     tab = 'cheat'; mountView();
