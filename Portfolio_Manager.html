@@ -278,10 +278,11 @@ details.method>summary{cursor:pointer;font-weight:650;font-size:14.5px}
 .mk{border:1px solid var(--border);background:var(--surface);border-radius:6px;min-width:28px;height:26px;padding:0 6px;font-size:14px;font-weight:700;line-height:1;color:var(--faint);cursor:pointer}
 .mk:hover{border-color:var(--border-strong);color:var(--text)}
 .mk.star.on{color:#e0a100} .mk.on{border-color:currentColor;background:var(--surface-2)}
-.mkmenu{display:flex;gap:4px;align-items:center}
-.mkmenu .mk{min-width:auto;height:30px;padding:0 10px;font-size:13px;font-weight:600;display:inline-flex;gap:5px;align-items:center}
-.mkmenu .mk b{font-size:15px}
-.mkmenu .mk.clr{color:var(--muted)}
+.mkbar.sm{gap:0;margin-right:5px;vertical-align:0}
+.mkbar.sm .mk{border:0;background:none;min-width:0;height:auto;padding:0 2px;font-size:13px;color:var(--faint);opacity:.55}
+.mkbar.sm .mk:hover{opacity:1;color:var(--text)}
+.mkbar.sm .mk.on{opacity:1;background:none}
+.mkbar.sm .mk.star.on{color:#e0a100} .mkbar.sm .mk.doubt.on{color:#d97706} .mkbar.sm .mk.rej.on{color:var(--neg)}
 tr.rej>td:not(:first-child){opacity:.5}
 tr.rej .tk{text-decoration:line-through}
 .mseg{display:inline-flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
@@ -523,34 +524,24 @@ const MK = Object.keys(MARKS);
 const markOf = sym => MK.find(m => S[MARKS[m].s][sym]) || '';
 const isStar = sym => !!S.stars[sym];
 const markCount = m => Object.keys(S[MARKS[m].s]).length;
-const markTitle = m => m ? `${MARKS[m].n} — click to change` : 'Mark: ★ shortlist · ? doubtful · ✗ reject';
-const starBtn = sym => { const m = markOf(sym); return `<button class="st${m ? ' on ' + m : ''}" data-star="${esc(sym)}" aria-haspopup="menu" title="${markTitle(m)}" aria-label="Mark ${esc(short(sym))}">${m ? MARKS[m].i : '☆'}</button>`; };
-const markBar = sym => { const c = markOf(sym); return `<span class="mkbar" role="group" aria-label="Mark">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}</span>`; };
+const starBtn = sym => markBar(sym, true);          // compact ★ ? ✗ beside the ticker in every table
+const markBar = (sym, sm) => { const c = markOf(sym); return `<span class="mkbar${sm ? ' sm' : ''}" role="group" aria-label="Mark ${esc(short(sym))}">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}</span>`; };
 function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
   if (!BY.has(sym)) return;
   for (const k of MK) delete S[MARKS[k].s][sym];
   if (m) S[MARKS[m].s][sym] = Date.now();
   save();
-  document.querySelectorAll('[data-star]').forEach(b => { if (b.dataset.star === sym) { b.className = 'st' + (m ? ' on ' + m : ''); b.textContent = m ? MARKS[m].i : '☆'; b.title = markTitle(m); } });
   document.querySelectorAll('[data-msym]').forEach(b => { if (b.dataset.msym === sym) { const on = b.dataset.mark === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.title = on ? 'Clear: ' + MARKS[b.dataset.mark].n : MARKS[b.dataset.mark].v; } });
   document.querySelectorAll('tr[data-sym]').forEach(tr => { if (tr.dataset.sym === sym) tr.classList.toggle('rej', m === 'rej'); });
   renderTabs();
   if (tab === 'star') mountShortlist();
 }
 function toggleStar(sym, force) { const on = force ?? !isStar(sym); if (on) setMark(sym, 'star'); else if (isStar(sym)) setMark(sym, ''); }
-function markPop(anchor, sym) {
-  const c = markOf(sym);
-  openPop(anchor, `<div class="pt">Mark <b>${esc(short(sym))}</b></div><div class="mkmenu">${MK.map(m => `<button class="mk ${m}${c === m ? ' on cur' : ''}" data-pm="${m}"><b>${MARKS[m].i}</b>${MARKS[m].v}</button>`).join('')}${c ? '<button class="mk clr" data-pm="">Clear</button>' : ''}</div>`, p => {
-    p.onclick = e => { const b = e.target.closest('[data-pm]'); if (!b) return; closePop(); setMark(sym, b.dataset.pm); };
-    p.onkeydown = e => { const k = {s: 'star', d: 'doubt', r: 'rej', x: 'rej', c: ''}[e.key.toLowerCase()]; if (k !== undefined) { e.preventDefault(); closePop(); setMark(sym, k); } };
-  });
-}
 const rowMarkCls = sym => S.rejects[sym] ? ' rej' : '';
 document.addEventListener('click', e => {
-  const t = e.target.closest && e.target.closest('[data-star], [data-mark]'); if (!t) return;
+  const t = e.target.closest && e.target.closest('[data-mark]'); if (!t) return;
   e.preventDefault(); e.stopPropagation();
-  if (t.dataset.mark) setMark(t.dataset.msym, markOf(t.dataset.msym) === t.dataset.mark ? '' : t.dataset.mark);
-  else markPop(t, t.dataset.star);
+  setMark(t.dataset.msym, markOf(t.dataset.msym) === t.dataset.mark ? '' : t.dataset.mark);
 }, true);
 
 // ---------- filters ----------
@@ -1932,7 +1923,7 @@ function mountShortlist() {
   const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'marked stocks', empty: '',
     extraTools: `<span style="color:var(--muted);font-size:12.5px;margin-left:4px">Selected →</span>${MK.map(m => `<button data-mv="${m}" title="Mark the ticked stocks ${MARKS[m].n.toLowerCase()}"><b class="st on ${m}" style="padding:0 3px 0 0">${MARKS[m].i}</b>${MARKS[m].v}</button>`).join('')}<button data-mv="" title="Remove the mark from the ticked stocks">Clear mark</button><button data-r="cmpsel" title="Open the selected (or all in this view, if none selected) in Compare - up to 10">⚖ Compare</button><button class="ghost danger" data-r="clearstars">Clear list</button>`});
   T.rowsFn = rowsFn; T.opts.noun = noun;
-  T.opts.empty = stView === 'all' ? 'Nothing marked yet — click ☆ next to any stock in any tab (or use ★ ? ✗ in its popup).' : `No ${MARKS[stView].n.toLowerCase()} stocks — click ☆ next to any stock in any tab and choose ${MARKS[stView].i} ${MARKS[stView].v}.`;
+  T.opts.empty = stView === 'all' ? 'Nothing marked yet — click ★ ? or ✗ next to any stock in any tab (or in its popup).' : `No ${MARKS[stView].n.toLowerCase()} stocks — click ${MARKS[stView].i} next to any stock in any tab.`;
   const rows = rowsFn(), cnt = {}; let free = 0;
   const stars = marked('star').map(s0 => BY.get(s0)).filter(Boolean);
   for (const r of stars) { const v = S.assign[r[SYM]]; if (v) cnt[v.a] = (cnt[v.a] || 0) + 1; else free++; }
@@ -1942,7 +1933,7 @@ function mountShortlist() {
     <div class="tiles">${MK.map(m => tile(`<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${MARKS[m].n}`, markCount(m), {star: 'your picks', doubt: 'need a closer look', rej: 'decided against (dimmed in every tab)'}[m])).join('')}${tile('★ not yet in an account', free, 'tick them below → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from the ★ shortlist')).join('')}</div>
     <div class="panel"><h3>${stView === 'all' ? 'All marked stocks' : `${MARKS[stView].i} ${MARKS[stView].n}`} — sorted by v3 score${ii('Score v3')}</h3>
       <div class="mseg" data-stv>${segs.map(([id, l, n]) => `<button aria-pressed="${id === stView}" data-v="${id}">${l}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="sub">Mark any stock in any tab with ☆ → <b>★ Shortlist</b>, <b>? Doubtful</b> or <b>✗ Reject</b> (or the ★ ? ✗ buttons in its popup). Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Angel, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
+      <div class="sub">Mark any stock in any tab with the <b>★ Shortlist</b> · <b>? Doubtful</b> · <b>✗ Reject</b> buttons beside its ticker (or in its popup); click again to clear. Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Angel, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
   T.mount(view.querySelector('[data-stt]'));
   view.querySelector('[data-stv]').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === stView) return; stView = b.dataset.v; try { sessionStorage.setItem(STORE + '-stview', stView); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
   const sel = () => [...T.sel].filter(s0 => markOf(s0));
@@ -2225,12 +2216,12 @@ if (TEST) {
   }
   {
     const keepS = [S.stars, S.doubts, S.rejects]; S.stars = {}; S.doubts = {}; S.rejects = {}; const keepV = stView; stView = 'star';
-    tab = 'all'; mountView(); const btn = view.querySelector('[data-tbl="all"] [data-star]'); const sym0 = btn.dataset.star; btn.click();
-    ok(popEl && popEl.querySelectorAll('[data-pm]').length === 3, 'mark: ☆ in a table row opens the ★ ? ✗ picker');
-    popEl.querySelector('[data-pm="star"]').click();
-    ok(isStar(sym0) && btn.textContent === '★' && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '1', 'mark: ★ picked from the row picker updates the icon and tab count');
-    btn.click(); popEl.querySelector('[data-pm="rej"]').click();
-    ok(!isStar(sym0) && markOf(sym0) === 'rej' && btn.textContent === '✗' && btn.closest('tr').classList.contains('rej'), 'mark: switching to ✗ replaces ★ and dims the row');
+    tab = 'all'; mountView(); const bar = view.querySelector('[data-tbl="all"] td.sym .mkbar'), btn = bar.querySelector('[data-mark="star"]'); const sym0 = btn.dataset.msym;
+    ok(bar.querySelectorAll('[data-mark]').length === 3 && !popEl, 'mark: ★ ? ✗ shown inline beside every ticker');
+    btn.click();
+    ok(isStar(sym0) && btn.classList.contains('on') && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '1', 'mark: ★ in a table row shortlists and updates the tab count');
+    bar.querySelector('[data-mark="rej"]').click();
+    ok(!isStar(sym0) && markOf(sym0) === 'rej' && !btn.classList.contains('on') && bar.querySelector('[data-mark="rej"]').classList.contains('on') && btn.closest('tr').classList.contains('rej'), 'mark: switching to ✗ replaces ★ and dims the row');
     setMark('NSE:TCS', 'star'); setMark('NSE:INFY', 'star'); setMark('NSE:WIPRO', 'doubt'); setMark(sym0, ''); toggleStar('NSE:HCLTECH', true); tab = 'star'; mountView();
     ok(tables.star.filtered().length === 3 && view.querySelector('[data-tbl="star"] [data-r="cmpsel"]') && view.querySelectorAll('[data-tbl="star"] [data-mv]').length === 4, 'shortlist: ★ view lists shortlisted stocks with move / Compare actions');
     view.querySelector('[data-stv] [data-v="doubt"]').click();

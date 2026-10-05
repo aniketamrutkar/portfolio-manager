@@ -198,7 +198,7 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
 
   It shows the lists as built; edits made in the app aren't backtested.
 - **Marks (★ shortlist / ? doubtful / ✗ rejected) and the Shortlist tab:**
-  - ☆ appears beside every stock: All Scrips, account tabs, Sector Top 10, Nifty 100, Sector Picks, Backtest and the Compare header. Clicking it opens a small picker: **★ Shortlist**, **? Doubtful**, **✗ Reject** (or Clear); keys s / d / r / c work while it is open. The icon then shows the mark. The stock popup has the three as toggle buttons beside the name.
+  - **★ ? ✗** buttons sit beside every ticker: All Scrips, account tabs, Sector Top 10, Nifty 100, Sector Picks, Backtest, the Compare header and the stock popup (larger there). One click sets that mark (★ Shortlist, ? Doubtful, ✗ Reject); clicking the lit one again clears it. Unmarked icons are faint grey; the active one is coloured.
   - A stock has at most one mark. Rejected stocks are dimmed (ticker struck through) in every table so they stand out while browsing.
   - The **★ ? ✗ Shortlist** tab has a switch for ★ Shortlisted / ? Doubtful / ✗ Rejected / All marked, sorted by v3 score, with a Mark and a "Marked on" column. Tiles count each mark and how many ★ stocks are already in each account.
   - From there you can tick stocks and use **Selected → ★ / ? / ✗ / Clear mark** to move them between lists, **Assign to…** to divide them into PEW-Angel, JPW-Angel or JPW-Zerodha (Active / To Invest / ETF·SGB), send up to 10 to **⚖ Compare**, or clear the current list (click twice to confirm).
@@ -300,6 +300,7 @@ An attempt was made to use the owner's Angel One SmartAPI subscription for price
 
 ## 10. History
 
+- 2026-10-06: the ☆ picker was replaced by inline ★ ? ✗ buttons beside every ticker.
 - 2026-10-06: ☆ now opens a ★ / ? / ✗ picker (shortlist, doubtful, rejected); rejected rows are dimmed everywhere; the Shortlist tab gained ★ / ? / ✗ / All views and bulk move between them. Self-test is now 60 checks.
 - 2026-10-04: added ☆ stars on every stock, a ★ Shortlist tab (assign, compare and unstar in bulk), and raised Compare to 10 stocks (fixed-width columns above 3 stocks).
 - 2026-10-04: **clean slate.** The app's accounts start empty and the original suggestions moved to `Suggested_Lists_Backup/` (`START_EMPTY` in common.py). "In your lists" columns are now live. The Compare selection now persists.
