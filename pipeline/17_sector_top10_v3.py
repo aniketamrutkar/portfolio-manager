@@ -1,16 +1,18 @@
 """Step 17 - "v3" fund-manager score using EVERY parameter on the Ratio Cheat Sheet, then the top 10 stocks of each of NSE's
 23 sectoral indices with a written rationale per stock. Independent of the account lists and of the step-12 score.
--> ../Score_v3_Nifty500.csv (every Nifty 500 stock), ../Sector_Top10_v3.csv (23 sectors x up to 10),
+-> ../Score_v3_Nifty500.csv (every Nifty 500 stock), ../Sector_Top10_v3.csv (23 sectors, every scored member ranked; 'In top 10' = best 10 that clear the bar: v3 >= 50, no red flags),
    ../Nifty100_v3.csv (all Nifty 100 members ranked), ../Returns_Nifty500.csv (1/3/5Y, via returns_135.py)
 
 Method (quality-at-a-reasonable-price, the way a long-only fund manager ranks within a sector):
   * each parameter -> 0..1 from the cheat sheet's green / yellow / red zones (piecewise-linear between zone edges);
     "compare within the sector" items (margins, P/B for non-financials) blend absolute zones with the stock's sector percentile
-  * pillars: Quality 28 · Growth 20 · Valuation 20 · Safety 17 · Shareholder & income 8 · Trend & liquidity 7  (= 100)
+  * pillars (v3.1): Quality 24 · Growth 17 · Valuation 16 · Safety 14 · Shareholder & income 6 · Returns & trend 23  (= 100)
+    Returns: 1Y return, 3Y CAGR, 5Y CAGR, 3Y CAGR vs Nifty 500, price vs 200-DMA, distance from 52W high, liquidity
   * missing data: that parameter drops out and its pillar is re-weighted (never counted as zero)
   * financials (banks, NBFCs, insurers, AMCs): debt/equity, interest cover, EV/EBITDA, FCF and operating margin are not used; P/B uses bank zones
   * red-flag caps: loss-making 35 · repeated losses 45 · D/E > 150 or interest cover < 2 (non-financials) 45 ·
-    promoter < 20% and down > 5 pts 45 · turnover < Rs 10 lakh/day 40 · P/E > 90 50
+    promoter < 20% and down > 5 pts 45 · turnover < Rs 10 lakh/day 40 · P/E > 90 50 ·
+    negative 1Y/3Y/5Y returns 50 · 3Y and 5Y CAGR both < -5% 45 · 1Y fall worse than -35% 60
 Sector membership: NSE's official constituent files for 19 indices (sector_constituents.json); Chemicals, Nifty500 Healthcare,
 REITs & Realty and Cement have no published file yet and are derived from NSE sector / industry classification (flagged)."""
 import json, math
@@ -29,6 +31,13 @@ a['Turnover (Lakh/day)'] = (a['Avg Volume'] * a['PxU'] / 1e5).round(1)
 yrs3 = lambda r: ((1 + r / 100) ** (1 / 3) - 1) * 100 if pd.notna(r) and r > -100 else np.nan
 yrs5 = lambda r: ((1 + r / 100) ** (1 / 5) - 1) * 100 if pd.notna(r) and r > -100 else np.nan
 a['Long CAGR %'] = [yrs5(r5) if pd.notna(r5) else yrs3(r3) for r5, r3 in zip(a['Return 5y %'], a['Return 3y %'])]
+import returns_135                                     # 1/3/5-year price returns on the app-wide dates (cached in raw_ret_hist.json)
+RET = returns_135.build(sorted(a.Sym.unique()))
+a = a.merge(RET, on='Symbol', how='left')
+N500_3Y = 8.2                                          # Nifty 500 3-yr CAGR over the same window (Sector_Returns.csv), for relative strength
+try:
+    _sr = pd.read_csv(f'{OUT}/Sector_Returns.csv'); N500_3Y = float(_sr.loc[_sr.Index == 'Nifty 500', '3Y CAGR %'].iloc[0])
+except Exception: pass
 pf = a['Profit yrs'].astype(str).str.split('/', expand=True)
 a['ProfitYears'], a['NIYears'] = pd.to_numeric(pf[0], errors='coerce'), pd.to_numeric(pf[1], errors='coerce')
 
@@ -80,12 +89,15 @@ par('Shareholder', 'Payout ratio', 2, lambda r, i: lin(r['Payout Ratio'], [(0, .
 par('Shareholder', 'Promoter holding', 2, lambda r, i: np.nan if pd.notna(r['Promoter %']) and r['Promoter %'] < 1 else lin(r['Promoter %'], [(15, 0), (25, .2), (30, .45), (50, .95), (60, 1), (75, 1), (90, .75)]), 'Promoter %', '%')
 par('Shareholder', 'Promoter change 1y', 1, lambda r, i: np.nan if pd.notna(r['Promoter %']) and r['Promoter %'] < 1 else lin(r['Promoter chg 1y (pp)'], [(-5, 0), (-3, .15), (-1, .6), (0, .8), (1, 1)]), 'Promoter chg 1y (pp)', ' pts')
 # TREND & LIQUIDITY 7
-par('Trend', 'Price vs 200-DMA', 2, lambda r, i: lin(r['Price vs 200DMA %'], [(-25, 0), (-15, .15), (-10, .35), (0, .65), (10, 1), (20, 1), (30, .6), (50, .2)]), 'Price vs 200DMA %', '%')
-par('Trend', '% below 52W high', 1.5, lambda r, i: np.nan, '% Below 52W High', '%')     # filled after Quality (quality-aware)
-par('Trend', 'Turnover/day', 2, lambda r, i: lin(r['Turnover (Lakh/day)'], [(10, 0), (50, .4), (100, .8), (500, 1)]), 'Turnover (Lakh/day)', ' L')
-par('Trend', '3-5y CAGR', 1.5, lambda r, i: lin(r['Long CAGR %'], [(0, 0), (8, .3), (12, .6), (15, .85), (25, 1)]), 'Long CAGR %', '%')
-PILLARS = {'Quality': 28, 'Growth': 20, 'Valuation': 20, 'Safety': 17, 'Shareholder': 8, 'Trend': 7}
-assert abs(sum(w for _, _, w, *_ in P) - 100) < 1e-9
+par('Returns', '1Y return', 5, lambda r, i: lin(r['1Y %'], [(-35, 0), (-15, .1), (0, .35), (10, .6), (20, .85), (35, 1)]), '1Y %', '%')
+par('Returns', '3Y CAGR', 6, lambda r, i: lin(r['3Y CAGR %'], [(-10, 0), (0, .15), (8, .4), (12, .6), (15, .8), (25, 1)]), '3Y CAGR %', '%')
+par('Returns', '5Y CAGR', 5, lambda r, i: lin(r['5Y CAGR %'], [(-10, 0), (0, .15), (8, .4), (12, .6), (15, .8), (25, 1)]), '5Y CAGR %', '%')
+par('Returns', 'Beat Nifty 500 (3Y)', 2, lambda r, i: lin(r['3Y CAGR %'] - N500_3Y, [(-10, 0), (0, .5), (5, .8), (10, 1)]) if pd.notna(r['3Y CAGR %']) else np.nan, '3Y CAGR %', '%')
+par('Returns', 'Price vs 200-DMA', 2, lambda r, i: lin(r['Price vs 200DMA %'], [(-25, 0), (-15, .15), (-10, .35), (0, .65), (10, 1), (20, 1), (30, .6), (50, .2)]), 'Price vs 200DMA %', '%')
+par('Returns', '% below 52W high', 1.5, lambda r, i: np.nan, '% Below 52W High', '%')     # filled after Quality (quality-aware)
+par('Returns', 'Turnover/day', 1.5, lambda r, i: lin(r['Turnover (Lakh/day)'], [(10, 0), (50, .4), (100, .8), (500, 1)]), 'Turnover (Lakh/day)', ' L')
+PILLARS = {'Quality': 24, 'Growth': 17, 'Valuation': 16, 'Safety': 14, 'Shareholder': 6, 'Returns': 23}   # v3.1: returns now matter (was Trend 7)
+assert sum(PILLARS.values()) == 100
 
 rows = []
 for i, r in a.iterrows():
@@ -117,6 +129,10 @@ for i, r in a.iterrows():
     cap = min(cap, flag(pd.notna(r['Promoter %']) and r['Promoter %'] < 20 and pd.notna(r['Promoter chg 1y (pp)']) and r['Promoter chg 1y (pp)'] < -5, 'promoter exiting', 45))
     cap = min(cap, flag(pd.notna(r['Turnover (Lakh/day)']) and r['Turnover (Lakh/day)'] < 10, 'illiquid (< Rs 10 lakh/day)', 40))
     cap = min(cap, flag(pd.notna(r['P/E']) and r['P/E'] > 90, f"very expensive (P/E {r['P/E']:.0f})" if pd.notna(r['P/E']) else '', 50))
+    rets = [x for x in (r['1Y %'], r['3Y CAGR %'], r['5Y CAGR %']) if pd.notna(x)]
+    cap = min(cap, flag(len(rets) >= 2 and all(x < 0 for x in rets), 'negative returns on every horizon (1Y/3Y/5Y)', 50))
+    cap = min(cap, flag(pd.notna(r['3Y CAGR %']) and pd.notna(r['5Y CAGR %']) and r['3Y CAGR %'] < -5 and r['5Y CAGR %'] < -5, f"long-term wealth destroyer (3Y {r['3Y CAGR %']:.1f}%/yr, 5Y {r['5Y CAGR %']:.1f}%/yr)" if pd.notna(r['3Y CAGR %']) and pd.notna(r['5Y CAGR %']) else '', 45))
+    cap = min(cap, flag(pd.notna(r['1Y %']) and r['1Y %'] < -35, f"sharp 1-year fall ({r['1Y %']:.0f}%)" if pd.notna(r['1Y %']) else '', 60))
     final = min(score, cap) if not np.isnan(score) else np.nan
     # rationale: biggest contributions and biggest misses (weight x points), with the actual values
     def fmt(n):
@@ -142,12 +158,11 @@ keep = ['Symbol', 'Company', 'Sector', 'Industry', 'Cap Class', 'Market Cap (Cr)
         'Turnover (Lakh/day)', 'Long CAGR %', 'Score']
 A = a[keep].rename(columns={'Score': 'Score v2 (portfolio screen)', 'Long CAGR %': '3-5y CAGR %'}).merge(V, on='Symbol')
 A['In your lists'] = A.Symbol.map(held).fillna('')
-import returns_135                                     # 1/3/5-year price returns (cached in raw_ret_hist.json)
-RET = returns_135.build(sorted(a.Sym.unique()))
 A = A.merge(RET, on='Symbol', how='left')
 A.sort_values('Score v3', ascending=False).to_csv(f'{OUT}/Score_v3_Nifty500.csv', index=False)
 
 # ---- 23 sectoral indices ----
+BAR = 50                                                  # minimum v3 score (and no red flags) to appear in a sector top-10
 cons = json.load(open('sector_constituents.json'))
 derived = {'NIFTY CHEMICALS': a.Sector.eq('Chemicals'),
            'NIFTY500 HEALTHCARE': a.Sector.eq('Healthcare'),
@@ -159,7 +174,7 @@ for idx, syms in cons.items():
     else: members, src = set(a[derived[idx]].Sym), 'derived from NSE sector/industry (no constituent file published yet)'
     pool = A[A.Symbol.str[4:].isin(members)].sort_values('Score v3', ascending=False)
     missing = sorted(members - set(pool.Symbol.str[4:]))
-    top = pool.head(10).copy()
+    top = pool.copy()                    # every scored member, ranked; 'In top 10' marks the list
     top.insert(0, 'Rank', range(1, len(top) + 1)); top.insert(0, 'Sector index', idx)
     top['Members'] = len(members); top['Members scored'] = len(pool); top['Membership source'] = src
     top['Not scored (outside Nifty 500 data)'] = ', '.join(missing)
@@ -178,13 +193,18 @@ for idx, syms in cons.items():
             why.append(f"{rec['Score v3'] - recs[k - 1]['Score v3']:+.1f} vs #{k} {recs[k - 1]['Symbol'][4:]}" + (f" — behind on {', '.join(lag)}" if lag else ''))
         else: why.append('only scored member')
     top['Why this rank'] = why
+    # quality bar: a list slot needs v3 >= BAR and no red flags; small sectors no longer get padded with losers
+    clears = (top['Score v3'] >= BAR) & top['Red flags'].fillna('').eq('')
+    top['Clears bar'] = clears
+    top['In top 10'] = clears & (clears.cumsum() <= 10)
     out.append(top)
 T = pd.concat(out, ignore_index=True)
 T.to_csv(f'{OUT}/Sector_Top10_v3.csv', index=False)
 
 # ---- consolidated: one row per unique stock across all 23 lists ----
 pretty = lambda n: n.title().replace('Nifty500', 'Nifty 500').replace('It ', 'IT ').replace('Psu', 'PSU').replace('Fmcg', 'FMCG').replace('Reits', 'REITs').replace('Ex-Bank', 'ex-Bank').replace(' It', ' IT')
-g = T.groupby('Symbol', sort=False)
+T10only = T[T['In top 10']]
+g = T10only.groupby('Symbol', sort=False)
 C = g.first().reset_index()
 C['In sector lists'] = g.apply(lambda x: '; '.join(f"{pretty(i)} #{r}" for i, r in sorted(zip(x['Sector index'], x['Rank']), key=lambda t: t[1])), include_groups=False).values
 C['Best rank'] = g['Rank'].min().values
@@ -194,7 +214,7 @@ C = C.drop(columns=[c for c in drop if c in C.columns]).sort_values('Score v3', 
 lead = ['Symbol', 'Company', 'Sector', 'Cap Class', 'Score v3', '1Y %', '3Y %', '5Y %', '3Y CAGR %', '5Y CAGR %', 'In sector lists', 'Best rank', 'Sector lists', 'In your lists']
 C = C[lead + [c for c in C.columns if c not in lead]]
 C.insert(0, 'Overall rank', range(1, len(C) + 1))
-print(f'{len(C)} unique stocks across {len(T)} sector-list rows (used for the Nifty 100 "In sector lists" column)')
+print(f'{len(C)} unique stocks across {len(T10only)} sector-list rows (used for the Nifty 100 "In sector lists" column)')
 
 # ---- Nifty 100: all members ranked on the same v3 score, same reasons, plus the sector lists they appear in ----
 n100 = set(pd.read_csv('nifty100.csv')['Symbol'].str.strip())
