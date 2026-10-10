@@ -313,6 +313,11 @@ table.cmp{border-collapse:separate;border-spacing:0;width:max-content;min-width:
 .cmp thead th:first-child{z-index:3;background:var(--surface-2)}
 .cmp tr.grp td{background:var(--surface-2);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left}
 .cmp tr.grp td:first-child{background:var(--surface-2)}
+.cmp tr.grp .fold{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
+.cmp tr.grp .fold:hover{color:var(--text)} .cmp tr.grp .fold:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.cmp tr.grp .chev{display:inline-block;width:14px;font-size:14px;color:var(--text)}
+.cmp tr.grp.crit td{background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
+.cmp tr.grp .fc{margin-left:12px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--faint)}
 .cmp td.best{background:color-mix(in srgb,var(--pos) 16%,var(--surface));color:var(--pos);font-weight:650}
 .cmp td.best::after{content:' ★';font-size:10px}
 .cmp tr.hl td{background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--text);font-weight:650}
@@ -2044,7 +2049,16 @@ const CMP_ROWS = [
 ];
 // rows highlighted across every stock so they are easy to spot; Red flags gets a red tint instead
 const CMP_KEY = new Set(['Score v3', '3Y CAGR %', '5Y CAGR %', 'Price', 'P/E', 'PE vs sector', 'ROE % (avg 4y)', 'Debt/Equity', '% Below 52W High', 'Upside to target %', 'Red flags']);
+// "Critical" section at the top: copies of the highlighted rows plus market cap (the originals stay in their sections).
+// Copies are tagged .crit so they are not counted twice in Best-in-row or exported twice in the CSV.
+const CMP_CRIT = 'Critical';
+const CMP_CRIT_KEYS = ['Score v3', 'Market Cap (Cr)', 'Price', 'P/E', 'PE vs sector', '1Y %', '2Y %', '3Y %', '4Y %', '5Y %', '2Y CAGR %', '3Y CAGR %', '4Y CAGR %', '5Y CAGR %', 'ROE % (avg 4y)', 'Debt/Equity', '% Below 52W High', 'Upside to target %', 'Red flags'];
+CMP_ROWS.unshift([CMP_CRIT], ...CMP_CRIT_KEYS.map(k => CMP_ROWS.find(r => r.length > 1 && r[1] === k)).filter(Boolean).map(r => Object.assign([...r], {crit: true})));
 let cmpQ = '';
+// collapsed Compare sections, remembered per browser (a view preference, not portfolio state)
+let cmpFold = {};
+try { cmpFold = JSON.parse(localStorage.getItem(STORE + '-cmpfold') || '{}') || {}; } catch (e) {}
+const saveFold = () => { if (TEST) return; try { localStorage.setItem(STORE + '-cmpfold', JSON.stringify(cmpFold)); } catch (e) {} };
 function cmpGet(sym, key, src) {
   if (src === 'x') {
     if (key === '_held') { const v = S.assign[sym]; return v ? `${AN(v.a)} · ${v.l}` : ''; }
@@ -2061,9 +2075,13 @@ function mountCompare() {
   const syms = S.cmp.filter(s0 => BY.has(s0));
   const head = syms.map(s0 => { const sc = cmpGet(s0, 'Score v3', 'v'); return `<th>${starBtn(s0)}<span class="tk" style="color:var(--accent);cursor:pointer" data-open="${esc(s0)}">${esc(short(s0))}</span><span class="sub2">${esc(String(cmpGet(s0, 'Company', 'u') || '').slice(0, 34))}</span></th>`; }).join('');
   const wins = Object.fromEntries(syms.map(s0 => [s0, 0]));
-  let rowsHtml = '';
+  let rowsHtml = '', grp = '';
   for (const spec of CMP_ROWS) {
-    if (spec.length === 1) { rowsHtml += `<tr class="grp"><td colspan="${syms.length + 1}">${esc(spec[0])}</td></tr>`; continue; }
+    if (spec.length === 1) {
+      grp = spec[0]; const shut = !!cmpFold[grp];
+      rowsHtml += `<tr class="grp${grp === CMP_CRIT ? ' crit' : ''}"><td colspan="${syms.length + 1}"><button class="fold" data-fold="${esc(grp)}" aria-expanded="${!shut}" title="${shut ? 'Expand' : 'Collapse'} this section"><span class="chev">${shut ? '▸' : '▾'}</span>${esc(grp)}<span class="fc"></span></button></td></tr>`;
+      continue;
+    }
     const [lab, key, src, d, better, max] = spec;
     const vals = syms.map(s0 => cmpGet(s0, key, src));
     if (vals.every(v => v == null || v === '') && key !== 'Analyst View') continue;   // analyst view always shows: "No rating" is information too
@@ -2074,12 +2092,13 @@ function mountCompare() {
       if (ok.length >= 2 && new Set(ok).size > 1) best = better === 'up' ? Math.max(...ok) : Math.min(...ok);
     }
     const gl = GL[key] || GL[lab];
-    rowsHtml += `<tr${CMP_KEY.has(key) ? ` class="hl${key === 'Red flags' ? ' flag' : ''}"` : ''}><td>${esc(lab)}${dirMark(key) || (better ? `<span class="dirm ${better}" title="${better === 'up' ? 'Higher' : 'Lower'} is better">${better === 'up' ? '↑' : '↓'}</span>` : '')}${GL[key] ? ii(key) : ''}</td>` + vals.map((v, i) => {
+    const hl = key === 'Red flags' ? 'hl flag' : CMP_KEY.has(key) && !spec.crit ? 'hl' : '';
+    rowsHtml += `<tr data-g="${esc(grp)}"${cmpFold[grp] ? ' hidden' : ''}${hl ? ` class="${hl}"` : ''}><td>${esc(lab)}${dirMark(key) || (better ? `<span class="dirm ${better}" title="${better === 'up' ? 'Higher' : 'Lower'} is better">${better === 'up' ? '↑' : '↓'}</span>` : '')}${GL[key] ? ii(key) : ''}</td>` + vals.map((v, i) => {
       if (key === 'Analyst View') { const a = avPill(v); return `<td><span class="avp ${a[1]}">${esc(a[0])}</span></td>`; }
       if (v == null || v === '') return `<td class="na">–</td>`;
       if (d === 't') return `<td class="txt">${key === '_held' ? `<span class="badge a${ACC_OF[String(v).split(' · ')[0]]}">${esc(v)}</span>` : esc(v)}</td>`;
       if (d === 'txt') return `<td class="txt">${esc(v)}</td>`;
-      const isBest = best != null && v === best; if (isBest) wins[syms[i]]++;
+      const isBest = best != null && v === best; if (isBest && !spec.crit) wins[syms[i]]++;
       const bar = max ? `<span class="bar" style="width:${Math.max(2, Math.min(1, v / max) * 70)}px"></span>` : '';
       const cls = /%|CAGR|change/.test(lab) && !/Payout|Promoter %|below|yield|margin|ROE/i.test(lab) ? pn(v) : '';
       return `<td class="${isBest ? 'best' : cls}">${fmtN(v, d)}${bar}</td>`;
@@ -2090,15 +2109,30 @@ function mountCompare() {
   view.innerHTML = `
     <div class="cmp-pick"><b>Compare</b>${chips}
       ${syms.length < 10 ? `<span class="srch"><input type="search" id="cmp-q" placeholder="Add a stock (symbol or company)…" value="${esc(cmpQ)}" aria-label="Add a stock to compare" autocomplete="off"><div class="drop" data-drop hidden></div></span>` : '<span class="count">Maximum 10 stocks - remove one to add another</span>'}
-      <span class="grow" style="flex:1"></span>${syms.length ? '<button class="ghost danger" data-cmpclr title="Remove every stock from Compare">Clear all</button>' : ''}<button data-cmpdl>⬇ CSV</button></div>
+      <span class="grow" style="flex:1"></span>${syms.length ? '<button data-foldall="0" title="Open every section">▾ Expand all</button><button data-foldall="1" title="Close every section, leaving only the headings">▸ Collapse all</button>' : ''}${syms.length ? '<button class="ghost danger" data-cmpclr title="Remove every stock from Compare">Clear all</button>' : ''}<button data-cmpdl>⬇ CSV</button></div>
     <div class="panel" style="padding:0;overflow:auto;max-height:calc(100vh - 220px)"><table class="cmp"${syms.length > 3 ? ` style="table-layout:fixed;width:${230 + syms.length * 175}px"` : ''}>${syms.length > 3 ? `<colgroup><col style="width:230px">${syms.map(() => '<col style="width:175px">').join('')}</colgroup>` : ''}<thead><tr><th>Parameter</th>${head}</tr></thead><tbody>${winRow}${rowsHtml}</tbody></table></div>
     <p class="hint">★ = best in the row, using each metric's better-direction from the cheat sheet (↑ higher / ↓ lower is better; context-dependent rows are not starred). Fundamentals are as of 1 Oct 2026; v3 details exist for Nifty 500 stocks only. Use ⚖ Compare in any stock's popup, or select stocks in ★ Shortlist, to add them here (up to 10).</p>`;
   view.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { S.cmp = S.cmp.filter(x => x !== b.dataset.rm); if (!S.cmp.length) S.cmp = ['_none']; save(); mountCompare(); });
   view.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(b.dataset.open, syms));
+  const tb = view.querySelector('table.cmp tbody');
+  const applyFold = () => {
+    tb.querySelectorAll('button[data-fold]').forEach(b => {
+      const g = b.dataset.fold, shut = !!cmpFold[g], rows = [...tb.querySelectorAll('tr[data-g]')].filter(r => r.dataset.g === g);
+      rows.forEach(r => { r.hidden = shut; });
+      b.setAttribute('aria-expanded', !shut); b.title = (shut ? 'Expand' : 'Collapse') + ' this section';
+      b.querySelector('.chev').textContent = shut ? '▸' : '▾';
+      b.querySelector('.fc').textContent = shut ? `${rows.length} row${rows.length === 1 ? '' : 's'} hidden` : '';
+    });
+  };
+  if (tb) {
+    applyFold();
+    tb.querySelectorAll('button[data-fold]').forEach(b => b.onclick = () => { const g = b.dataset.fold; if (cmpFold[g]) delete cmpFold[g]; else cmpFold[g] = 1; saveFold(); applyFold(); });
+    view.querySelectorAll('[data-foldall]').forEach(b => b.onclick = () => { cmpFold = {}; if (b.dataset.foldall === '1') tb.querySelectorAll('button[data-fold]').forEach(x => { cmpFold[x.dataset.fold] = 1; }); saveFold(); applyFold(); });
+  }
   const clr = view.querySelector('[data-cmpclr]');
   if (clr) clr.onclick = () => { const n = syms.length; S.cmp = ['_none']; save(); renderTabs(); mountCompare(); toast(`Cleared ${n} stock${n > 1 ? 's' : ''} from Compare`, false); };
   view.querySelector('[data-cmpdl]').onclick = () => {
-    const rows = CMP_ROWS.filter(x => x.length > 1).map(([lab, key, src]) => [lab, ...syms.map(s0 => cmpGet(s0, key, src))]);
+    const rows = CMP_ROWS.filter(x => x.length > 1 && !x.crit).map(([lab, key, src]) => [lab, ...syms.map(s0 => cmpGet(s0, key, src))]);
     const q = v => { if (v == null) return ''; const t0 = String(v); return /[",\n]/.test(t0) ? '"' + t0.replace(/"/g, '""') + '"' : t0; };
     download(new Blob(['﻿' + [['Parameter', ...syms.map(short)], ...rows].map(r => r.map(q).join(',')).join('\r\n')], {type: 'text/csv'}), `Compare_${syms.map(short).join('_')}_${stamp()}.csv`);
   };
@@ -2277,6 +2311,13 @@ if (TEST) {
     addToCompare('NSE:AXISBANK'); ok(S.cmp.length === 4 && view.querySelectorAll('table.cmp thead th').length === 5, 'compare: popup ⚖ adds a 4th stock');
     ['NSE:KOTAKBANK', 'NSE:INDUSINDBK', 'NSE:BANKBARODA', 'NSE:PNB', 'NSE:CANBK', 'NSE:UNIONBANK', 'NSE:FEDERALBNK'].forEach(addToCompare);
     ok(S.cmp.length === 10 && view.querySelectorAll('table.cmp thead th').length === 11 && !view.querySelector('#cmp-q'), 'compare: up to 10 stocks, search hidden at the limit');
+    { const keepF = cmpFold, pe = () => [...view.querySelectorAll('table.cmp tr[data-g="Valuation"]')].find(r => r.firstElementChild.textContent.startsWith('P/E'));
+      view.querySelector('button[data-fold="Valuation"]').click(); ok(pe().hidden && view.querySelector('button[data-fold="Valuation"] .fc').textContent.includes('hidden'), 'compare: a section collapses');
+      view.querySelector('[data-foldall="0"]').click(); ok(!pe().hidden && !view.querySelector('table.cmp tr[data-g][hidden]'), 'compare: Expand all opens every section');
+      view.querySelector('[data-foldall="1"]').click(); ok(view.querySelectorAll('table.cmp tr[data-g]:not([hidden])').length === 0 && view.querySelectorAll('table.cmp tr.grp').length > 5, 'compare: Collapse all leaves only headings');
+      cmpFold = keepF; }
+    { const g = [...view.querySelectorAll('table.cmp tr.grp')].map(r => r.textContent.trim()); const crit = [...view.querySelectorAll('table.cmp tr[data-g="Critical"]')].map(r => r.firstElementChild.textContent);
+      ok(g[0].replace(/^[▾▸\s]+/, '').startsWith('Critical') && crit.some(t => t.startsWith('Market cap')) && crit.some(t => t.startsWith('P/E')) && [...view.querySelectorAll('table.cmp tr[data-g="Valuation"]')].some(r => r.firstElementChild.textContent.startsWith('P/E')), 'compare: Critical section on top, rows also kept in their own sections'); }
     view.querySelector('[data-cmpclr]').click(); ok(S.cmp.length === 1 && S.cmp[0] === '_none' && !view.querySelector('table.cmp thead th + th') && !view.querySelector('[data-cmpclr]'), 'compare: Clear all empties the list');
     S.cmp = keep; tab = 'all'; mountView();
   }
