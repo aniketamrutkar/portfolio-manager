@@ -1,4 +1,4 @@
-"""Step 15 - returns of every live NSE equity index (sectoral, thematic, broad-market, strategy) over 1/2/3/5/10/15/20/25/30 years,
+"""Step 15 - returns of every live NSE equity index (sectoral, thematic, broad-market, strategy) over 1/2/3/4/5/10/15/20/25/30 years,
 plus each index's data start and since-inception CAGR, from NSE's official index history. -> ../Sector_Returns.csv
 Independent of the account lists (reads/writes nothing of steps 10-14).
 Price-return indices (dividends excluded; NSE's TRI series are not served by this endpoint). A horizon starts on the first trading
@@ -9,7 +9,7 @@ import pandas as pd, requests
 from common import OUT, UA, load_json
 
 END_DATE = '2026-10-01'
-HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
+HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '4Y': 4, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
 CATS = {'SECTORAL INDICES': 'Sector', 'THEMATIC INDICES': 'Theme', 'BROAD MARKET INDICES': 'Broad market', 'STRATEGY INDICES': 'Strategy'}
 EXTRA = {'NIFTY 50': 'Broad market', 'NIFTY NEXT 50': 'Broad market', 'NIFTY BANK': 'Sector', 'NIFTY FINANCIAL SERVICES': 'Sector', 'NIFTY MIDCAP SELECT': 'Broad market'}
 SKIP = {'INDIA VIX', 'NIFTY50 TR 2X LEVERAGE', 'NIFTY50 PR 2X LEVERAGE', 'NIFTY50 TR 1X INVERSE', 'NIFTY50 PR 1X INVERSE', 'NIFTY50 DIVIDEND POINTS', 'NIFTY50 USD'}

@@ -213,7 +213,7 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
   ★ marks the best value in each row, using the cheat-sheet direction, and a best-in-row count sums it up. CSV export is available, and the selection is saved in `S.cmp`. Step 18 embeds `Score_v3_Nifty500.csv` for this.
 - **Nifty 100 tab:** all 100 members ranked by v3 score. Summary tiles show the 80+ count, red-flagged count, how many you hold, and the average 1/3/5Y against the Nifty 100 index. Same columns and reasons as Sector Top 10, plus ×n sector-list badges.
 - **Sector Top 10 tab:**
-  - a picker for any of the 23 NSE sectoral indices, showing its top 10 by v3 score with 1/3/5Y returns; **All sectors** shows each stock once, with a ×n badge and its best placement
+  - a picker for 22 NSE sectoral indices (Nifty Financial Services 25/50 is left out: same stocks as Nifty Financial Services, so the same ranking), showing its top 10 by v3 score with 1/3/5Y returns; **All sectors** shows each stock once, with a ×n badge and its best placement
   - for each stock: why it ranks there, strengths and weaknesses with real values, red flags, and points per pillar
   - the full method, a CSV download, and a click on a stock opens its popup
 - **Sector Picks tab:**

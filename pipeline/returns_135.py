@@ -1,5 +1,5 @@
-"""1/3/5-year price returns for every Nifty 500 stock (helper used by step 17). -> raw_ret_hist.json (cache) + ../Returns_Nifty500.csv
-Each horizon starts on the first trading day on/after 1 October of 2025 / 2023 / 2021 and ends on the latest close on/before END_DATE,
+"""1/2/3/4/5-year price returns for every Nifty 500 stock (helper used by step 17). -> raw_ret_hist.json (cache) + ../Returns_Nifty500.csv
+Each horizon starts on the first trading day on/after 1 October of 2025 / 2024 / 2023 / 2022 / 2021 and ends on the latest close on/before END_DATE,
 the same convention as the Sectors / Sector Picks / Backtest tabs. Yahoo split-adjusted closes; histories Yahoo adjusted only partly are
 corrected; any horizon spanning an unadjusted break (non-reverting one-day move <= -45% or > +50%: bonus/split, demerger, bad data) is blanked."""
 import datetime as dt, json, os, time
@@ -7,7 +7,8 @@ import pandas as pd
 from common import OUT, run_resumable, load_json
 
 END_DATE = '2026-10-01'
-H = {'1Y': 2025, '3Y': 2023, '5Y': 2021}
+H = {'1Y': 2025, '2Y': 2024, '3Y': 2023, '4Y': 2022, '5Y': 2021}
+CACHE_V = 2                            # bump when H changes: cached entries keep only the closes around each horizon's start
 is_break = lambda m: m <= -45 or m > 50
 
 
@@ -28,14 +29,17 @@ def hist(sym):
             jumps = [[c[i][0], round((c[i][1] / c[i - 1][1] - 1) * 100)] for i in range(1, len(c))
                      if abs(c[i][1] / c[i - 1][1] - 1) > 0.35 and not any(abs(v / c[i - 1][1] - 1) < 0.2 for _, v in c[i + 1:i + 6])]
             keep = lambda d: any(f'{y}-09-28' <= d <= f'{y}-10-20' for y in H.values()) or d >= (dt.date.fromisoformat(END_DATE) - dt.timedelta(days=15)).isoformat()
-            return sym, {'close': {d: round(v, 4) for d, v in c if keep(d)}, 'first': c[0][0], 'jumps': jumps}
+            return sym, {'close': {d: round(v, 4) for d, v in c if keep(d)}, 'first': c[0][0], 'jumps': jumps, 'v': CACHE_V}
         except Exception:
             time.sleep(2 * (attempt + 1))
     return sym, None
 
 
 def build(symbols):
-    raw = run_resumable('returns-1/3/5y', hist, symbols, 'raw_ret_hist.json', workers=2)
+    old = load_json('raw_ret_hist.json')
+    if any(v and v.get('v') != CACHE_V for v in old.values()):   # cached before 2Y/4Y existed: re-fetch those symbols
+        json.dump({k: v for k, v in old.items() if v and v.get('v') == CACHE_V}, open('raw_ret_hist.json', 'w'))
+    raw = run_resumable('returns-1/2/3/4/5y', hist, symbols, 'raw_ret_hist.json', workers=2)
     rows = []
     for s in symbols:
         h = raw.get(s) or {}
@@ -62,4 +66,4 @@ def build(symbols):
 if __name__ == '__main__':
     a = pd.read_csv(f'{OUT}/Nifty500_Analysis.csv')
     R = build(sorted(a.Symbol.dropna().str[4:].unique()))
-    print(R.describe().round(1).to_string()); print('blank 1Y/3Y/5Y:', R['1Y %'].isna().sum(), R['3Y %'].isna().sum(), R['5Y %'].isna().sum())
+    print(R.describe().round(1).to_string()); print('blank 1Y..5Y:', *(R[f'{h} %'].isna().sum() for h in H))

@@ -82,6 +82,7 @@ table.grid{border-collapse:separate;border-spacing:0;width:max-content;min-width
 .grid td.c,.grid th.c{width:34px;text-align:center;padding:0 6px}
 .grid td.sym{font-weight:600}
 .grid td.co{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.grid td.why{white-space:normal;min-width:220px;max-width:340px;font-size:12px;line-height:1.35}
 .grid td.pos{color:var(--pos)} .grid td.neg{color:var(--neg)}
 .grid td.act{text-align:right}
 .grid td.act button{padding:2px 8px;font-size:12px;margin-left:4px}
@@ -282,6 +283,7 @@ details.method>summary{cursor:pointer;font-weight:650;font-size:14.5px}
 .mkbar.sm .mk{border:0;background:none;min-width:0;height:auto;padding:0 2px;font-size:13px;color:var(--faint);opacity:.55}
 .mkbar.sm .mk:hover{opacity:1;color:var(--text)}
 .mkbar.sm .mk.on{opacity:1;background:none}
+.mkbar.sm .mk.cmp{font-size:15px;margin-left:3px;padding:0 3px;border-radius:4px} .mk.cmp.on,.mkbar.sm .mk.cmp.on{color:var(--accent);background:var(--accent-soft)}
 .mkbar.sm .mk.star.on{color:#e0a100} .mkbar.sm .mk.doubt.on{color:#d97706} .mkbar.sm .mk.rej.on{color:var(--neg)}
 tr.rej>td:not(:first-child){opacity:.5}
 tr.rej .tk{text-decoration:line-through}
@@ -313,7 +315,15 @@ table.cmp{border-collapse:separate;border-spacing:0;width:max-content;min-width:
 .cmp tr.grp td:first-child{background:var(--surface-2)}
 .cmp td.best{background:color-mix(in srgb,var(--pos) 16%,var(--surface));color:var(--pos);font-weight:650}
 .cmp td.best::after{content:' ★';font-size:10px}
-.cmp td.txt{text-align:left;white-space:normal;font-size:12px;line-height:1.35;max-width:320px}
+.cmp tr.hl td{background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--text);font-weight:650}
+.cmp tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--accent);font-weight:700}
+.cmp tr.hl td.best{background:color-mix(in srgb,var(--pos) 20%,var(--surface));color:var(--pos)}
+.cmp tr.hl td.na{color:var(--faint)}
+.cmp tr.hl.flag td{background:color-mix(in srgb,var(--neg) 9%,var(--surface))} .cmp tr.hl.flag td.txt{color:var(--neg)}
+.cmp tr.hl.flag td:first-child{box-shadow:inset 3px 0 0 var(--neg)}
+.cmp td.txt{text-align:right;white-space:normal;font-size:12px;line-height:1.35;max-width:320px}
+.avp{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:650;white-space:nowrap}
+.avp.buy{color:var(--pos);background:var(--ok-soft)} .avp.sell{color:var(--neg);background:color-mix(in srgb,var(--neg) 14%,var(--surface))} .avp.hold{color:var(--warn);background:var(--warn-soft)}
 .cmp .bar{display:inline-block;height:7px;border-radius:4px;background:var(--accent);vertical-align:middle;margin-left:6px;opacity:.75}
 .cmp .na{color:var(--faint)}
 .cmp th .sub2{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
@@ -509,6 +519,7 @@ function val(r, k) {
   if (k === '_asg') return asgLabel(r[SYM]);
   if (k === '_list') { const v = S.assign[r[SYM]]; return v ? v.l : ''; }
   if (k === '_v3') { const x = V3.get(r[SYM]); return x ? x['Score v3'] : null; }
+  if (VIRT[k] && VIRT[k].v3) { const x = V3.get(r[SYM]); return x ? x[VIRT[k].v3] ?? null : null; }
   if (k === '_star') { const m = markOf(r[SYM]), t0 = m && S[MARKS[m].s][r[SYM]]; return t0 ? new Date(t0).toISOString().slice(0, 10) : ''; }
   if (k === '_mark') { const m = markOf(r[SYM]); return m ? MARKS[m].n : ''; }
   return r[CI[k]];
@@ -525,7 +536,10 @@ const markOf = sym => MK.find(m => S[MARKS[m].s][sym]) || '';
 const isStar = sym => !!S.stars[sym];
 const markCount = m => Object.keys(S[MARKS[m].s]).length;
 const starBtn = sym => markBar(sym, true);          // compact ★ ? ✗ beside the ticker in every table
-const markBar = (sym, sm) => { const c = markOf(sym); return `<span class="mkbar${sm ? ' sm' : ''}" role="group" aria-label="Mark ${esc(short(sym))}">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}</span>`; };
+const inCmp = sym => (S.cmp || []).includes(sym);
+const cmpTitle = on => on ? 'In Compare - click to remove' : 'Add to Compare (up to 10)';
+const cmpBtn = sym => { const on = inCmp(sym); return `<button class="mk cmp${on ? ' on' : ''}" data-cmp="${esc(sym)}" aria-pressed="${on}" title="${cmpTitle(on)}">⚖</button>`; };
+const markBar = (sym, sm) => { const c = markOf(sym); return `<span class="mkbar${sm ? ' sm' : ''}" role="group" aria-label="Mark ${esc(short(sym))}">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}${sm ? cmpBtn(sym) : ''}</span>`; };
 function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
   if (!BY.has(sym)) return;
   for (const k of MK) delete S[MARKS[k].s][sym];
@@ -538,7 +552,21 @@ function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
 }
 function toggleStar(sym, force) { const on = force ?? !isStar(sym); if (on) setMark(sym, 'star'); else if (isStar(sym)) setMark(sym, ''); }
 const rowMarkCls = sym => S.rejects[sym] ? ' rej' : '';
+function toggleCmp(sym) {          // ⚖ beside a ticker: add to / remove from Compare without leaving the table
+  if (!BY.has(sym)) return;
+  const cur = (S.cmp || []).filter(x => x !== '_none'), on = !cur.includes(sym);
+  const dropped = on && cur.length >= 10 ? cur[0] : null;
+  S.cmp = on ? [...cur, sym].slice(-10) : cur.filter(x => x !== sym);
+  if (!S.cmp.length) S.cmp = ['_none'];
+  save();
+  document.querySelectorAll('[data-cmp]').forEach(b => { const v = inCmp(b.dataset.cmp); b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); b.title = cmpTitle(v); });
+  renderTabs();
+  const n = S.cmp.filter(x => x !== '_none').length;
+  toast(on ? `${short(sym)} added to Compare (${n}/10)${dropped ? ` - ${short(dropped)} dropped, 10 is the limit` : ''}` : `${short(sym)} removed from Compare (${n}/10)`, false);
+}
 document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-cmp]');
+  if (c) { e.preventDefault(); e.stopPropagation(); toggleCmp(c.dataset.cmp); return; }
   const t = e.target.closest && e.target.closest('[data-mark]'); if (!t) return;
   e.preventDefault(); e.stopPropagation();
   setMark(t.dataset.msym, markOf(t.dataset.msym) === t.dataset.mark ? '' : t.dataset.mark);
@@ -606,7 +634,9 @@ const GL = {
   '52-week range': {d: 'Where today\'s price sits between the 52-week low (left) and high (right).', b: 'mid', i: 'Near the high = strong momentum; near the low = beaten down (opportunity or a falling knife - check why).'},
   '% Below 52W High': {d: 'How far the price is below its 52-week high, in %.', b: 'mid', i: '0-10% = near highs (momentum). 20-40% = meaningful correction, can be a buying window for quality stocks. 50%+ = deep fall - find the reason first.'},
   'Return 1y %': {d: 'Price change over the last 1 year (dividend-adjusted where available).', b: 'up', i: 'Compare with the Nifty\'s return over the same period. Past returns do not guarantee future ones.'},
+  'Return 2y %': {d: 'Total price change over the last 2 years, from the first trading day of Oct 2024 (not annualised). Nifty 500 stocks only.', b: 'up', i: '~25% over 2 years ≈ 12% a year.'},
   'Return 3y %': {d: 'Total price change over the last 3 years (not annualised).', b: 'up', i: '~40% over 3 years ≈ 12% a year (roughly the Nifty\'s long-run pace). Above that = outperformance.'},
+  'Return 4y %': {d: 'Total price change over the last 4 years, from the first trading day of Oct 2022 (not annualised). Nifty 500 stocks only.', b: 'up', i: '~57% over 4 years ≈ 12% a year.'},
   'Return 5y %': {d: 'Total price change over the last 5 years (not annualised). Often blank when history is just short of 5 years.', b: 'up', i: '~75% over 5 years ≈ 12% a year. 100%+ ≈ 15%+ a year.'},
   'Volatility %': {d: 'Annualised standard deviation of daily price moves - how bumpy the ride is.', b: 'down', i: 'Large caps ~15-25%, mid/small caps ~25-40%, above 45% = very jumpy. Liquid ETFs ~0-2%, gold ~15-20%, silver ~30%+.'},
   'Max Drawdown 3y %': {d: 'Worst peak-to-trough fall in the last 3 years.', b: 'up', i: 'Closer to 0 is better: −10 to −20% mild, −30% typical for stocks, −50% or worse = severe. Ask yourself if you could hold through it.'},
@@ -661,7 +691,7 @@ const GL = {
   'Index': {d: 'NSE index (official Nifty series). Sector = one industry; Theme = a cross-industry idea (PSU, defence, consumption...); Broad market = size buckets; Strategy = factor rules (momentum, quality, value, low volatility...).', b: 'na'},
   'Category': {d: 'Sector, Theme, Broad market or Strategy (factor) index, as NSE classifies it.', b: 'na'},
   '1Y': {d: 'Return over the last 1 year (from the first trading day of Oct 2025). Shown as CAGR or total % per the toggle.', b: 'up'},
-  '2Y': {d: 'Return over the last 2 years (from Oct 2024).', b: 'up'}, '3Y': {d: 'Return over the last 3 years (from Oct 2023).', b: 'up'},
+  '2Y': {d: 'Return over the last 2 years (from Oct 2024).', b: 'up'}, '3Y': {d: 'Return over the last 3 years (from Oct 2023).', b: 'up'}, '4Y': {d: 'Return over the last 4 years (from Oct 2022).', b: 'up'},
   '5Y': {d: 'Return over the last 5 years (from Oct 2021).', b: 'up'}, '10Y': {d: 'Return over the last 10 years (from Oct 2016).', b: 'up'},
   '15Y': {d: 'Return over the last 15 years (from Oct 2011).', b: 'up'}, '20Y': {d: 'Return over the last 20 years (from Oct 2006).', b: 'up'},
   '25Y': {d: 'Return over the last 25 years (from Oct 2001).', b: 'up'}, '30Y': {d: 'Return over the last 30 years (from Oct 1996).', b: 'up', i: 'Long-run Indian equities ~11-13% CAGR; above 15% for decades is exceptional.'},
@@ -679,14 +709,16 @@ const GL = {
   'Shareholder (6)': {d: 'Dividend yield, payout ratio, promoter holding and its 1-yr change (not applied to widely-held companies with no promoter).', b: 'up'},
   'Returns (23)': {d: 'Has the stock actually made money? 1-yr return (5), 3-yr CAGR (6), 5-yr CAGR (5), 3-yr CAGR vs the Nifty 500 (2), price vs 200-day average (2), distance from 52-week high (1.5, quality-aware), daily turnover (1.5).', b: 'up', i: '3-5 yr CAGR above 15% and beating the Nifty 500 scores best; negative CAGR scores near zero and can trigger a cap.'},
   '1Y %': {d: 'Price return over the last 1 year (first trading day of Oct 2025 → 1 Oct 2026). Same dates for every stock and index in the app.', b: 'up'},
+  '2Y %': {d: 'Total price return over 2 years (from Oct 2024). See 2Y CAGR % for the yearly rate.', b: 'up', i: '+25% in 2 years ≈ 12% a year.'},
   '3Y %': {d: 'Total price return over 3 years (from Oct 2023). See 3Y CAGR % for the yearly rate.', b: 'up', i: '+40% in 3 years ≈ 12% a year.'},
+  '4Y %': {d: 'Total price return over 4 years (from Oct 2022). See 4Y CAGR % for the yearly rate.', b: 'up', i: '+57% in 4 years ≈ 12% a year.'},
   '5Y %': {d: 'Total price return over 5 years (from Oct 2021). See 5Y CAGR % for the yearly rate.', b: 'up', i: '+76% in 5 years ≈ 12% a year.'},
-  '1Y CAGR %': {d: 'Same as 1Y % (one year).', b: 'up'}, '3Y CAGR %': {d: 'Yearly compounded rate over 3 years.', b: 'up', i: 'Above 15% strong; Nifty 50 was +4.7%/yr over this window.'},
+  '1Y CAGR %': {d: 'Same as 1Y % (one year).', b: 'up'}, '2Y CAGR %': {d: 'Yearly compounded rate over 2 years.', b: 'up'}, '4Y CAGR %': {d: 'Yearly compounded rate over 4 years.', b: 'up'}, '3Y CAGR %': {d: 'Yearly compounded rate over 3 years.', b: 'up', i: 'Above 15% strong; Nifty 50 was +4.7%/yr over this window.'},
   '5Y CAGR %': {d: 'Yearly compounded rate over 5 years.', b: 'up', i: 'Above 15% strong; Nifty 50 was +5.0%/yr over this window.'},
   'Returns note': {d: 'Why a return is blank: listed later, or the period spans an unadjusted corporate action (bonus/split/demerger) that would distort it.', b: 'na'},
   'In sector lists': {d: 'Every NSE sector top-10 this stock appears in, with its rank there (sector indices overlap, e.g. a bank sits in Bank, Private/PSU Bank and Financial Services).', b: 'na'},
   'Best rank': {d: 'Its best rank across the sector lists (1 = it tops at least one sector).', b: 'down'},
-  'Sector lists': {d: 'How many of the 23 sector top-10 lists include it.', b: 'up'},
+  'Sector lists': {d: 'How many of the 22 sector top-10 lists include it.', b: 'up'},
   'Overall rank': {d: 'Rank among all unique top-10 stocks by v3 score.', b: 'down'},
   'Score v2 (portfolio screen)': {d: 'The older percentile score used to build your account lists (not all cheat-sheet parameters). Shown for comparison only.', b: 'up'},
   'Sector index': {d: 'NSE sectoral index. 19 use NSE\'s official constituent list; Chemicals, Nifty500 Healthcare, REITs & Realty and Cement are derived from NSE sector / industry (no list published yet).', b: 'na'},
@@ -698,8 +730,9 @@ const GL = {
 };
 const DIR = {up: '↑ Higher is better', down: '↓ Lower is better', mid: '↕ Depends - see the guide', na: ''};
 const DIRM = {up: ['↑', 'Higher is better'], down: ['↓', 'Lower is better'], mid: ['~', 'Depends on context - see ⓘ']};
-const dirMark = k => { const g = GL[k], m = g && DIRM[g.b]; return m ? `<span class="dirm ${g.b}" title="${m[1]}" aria-label="${m[1]}">${m[0]}</span>` : ''; };
-const ii = k => GL[k] ? `<span class="ii" data-ii="${esc(k)}" tabindex="0" role="button" aria-label="What does ${esc(GL[k].n || k)} mean?">i</span>` : '';
+const glk = k => !GL[k] && VIRT[k] && VIRT[k].v3 ? VIRT[k].v3 : k;      // v3 detail columns ('v3:Quality (24)') share the glossary of their source column
+const dirMark = k0 => { const k = glk(k0), g = GL[k], m = g && DIRM[g.b]; return m ? `<span class="dirm ${g.b}" title="${m[1]}" aria-label="${m[1]}">${m[0]}</span>` : ''; };
+const ii = k0 => { const k = glk(k0); return GL[k] ? `<span class="ii" data-ii="${esc(k)}" tabindex="0" role="button" aria-label="What does ${esc(GL[k].n || k)} mean?">i</span>` : '' };
 const tipEl = document.createElement('div'); tipEl.id = 'tip'; tipEl.hidden = true; tipEl.setAttribute('role', 'tooltip'); document.body.appendChild(tipEl);
 let tipFor = null, tipPinned = false;
 function showTip(el, pin) {
@@ -732,8 +765,8 @@ document.addEventListener('keydown', e => {
 addEventListener('scroll', () => { if (!tipEl.hidden) hideTip(); }, true);
 
 // ---------- table component ----------
-const DEF_ALL = ['_chk', '_asg', 'Symbol', 'Company', 'Instrument Type', 'Sector', 'Cap Class', 'Market Cap (Cr)', 'Price', 'P/E', '52W High', '52W Low', '% Below 52W High', 'Dividend Yield %', 'ROE %', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Score'];
-const DEF_ACC = ['_chk', '_list', 'Symbol', 'Company', 'Instrument Type', 'Sector', 'Cap Class', 'Market Cap (Cr)', 'Price', 'P/E', '52W High', '52W Low', '% Below 52W High', 'Dividend Yield %', 'ROE % (avg 4y)', 'Promoter %', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Score', '_act'];
+const DEF_ALL = ['_chk', '_asg', 'Symbol', 'Company', 'Instrument Type', 'Sector', 'Cap Class', 'Market Cap (Cr)', 'Price', 'P/E', '52W High', '52W Low', '% Below 52W High', 'Dividend Yield %', 'ROE %', 'Return 1y %', 'Return 2y %', 'Return 3y %', 'Return 4y %', 'Return 5y %', 'Score'];
+const DEF_ACC = ['_chk', '_list', 'Symbol', 'Company', 'Instrument Type', 'Sector', 'Cap Class', 'Market Cap (Cr)', 'Price', 'P/E', '52W High', '52W Low', '% Below 52W High', 'Dividend Yield %', 'ROE % (avg 4y)', 'Promoter %', 'Return 1y %', 'Return 2y %', 'Return 3y %', 'Return 4y %', 'Return 5y %', 'Score', '_act'];
 const tables = {};
 function Table(id, rowsFn, defCols, opts = {}) {
   const T = {id, q: '', f: {}, sort: null, page: 0, ps: opts.ps || 100, sel: new Set(), el: null, rowsFn, opts};
@@ -902,6 +935,11 @@ function rowHtml(r, T) {
     if (k === '_asg') { const v = S.assign[s]; return `<td>${v ? `<button class="badge a${v.a}" data-a="asg" title="Move to another account / list">${esc(AN(v.a))} · ${esc(v.l)}</button>` : `<button class="badge none" data-a="asg">＋ Assign</button>`}</td>`; }
     if (k === '_list') { const v = S.assign[s]; return `<td>${v ? `<button class="badge a${v.a}" data-a="asg" title="Move to another account / list">${esc(v.l)}</button>` : ''}</td>`; }
     if (k === '_v3') { const x = val(r, '_v3'); return `<td class="num heat" style="${tint(x == null ? null : (x - 60) / 1.5)}">${x == null ? '–' : '<b>' + fmtN(x, 1) + '</b>'}</td>`; }
+    if (VIRT[k] && VIRT[k].v3) {
+      const v = val(r, k), M = VIRT[k];
+      if (M.t === 'num') return `<td class="num${M.signed && v != null ? (v > 0 ? ' pos' : v < 0 ? ' neg' : '') : ''}">${fmtN(v, M.d)}</td>`;
+      return `<td class="why${M.v3 === 'Red flags' && v ? ' neg' : ''}">${esc(v)}</td>`;
+    }
     if (k === '_star') return `<td>${esc(val(r, '_star'))}</td>`;
     if (k === '_mark') { const m = markOf(s); return `<td>${m ? `<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${esc(MARKS[m].n)}` : ''}</td>`; }
     if (k === '_act') return `<td class="act"><button data-a="asg" title="Move to another account or list">⇄ Move</button><button class="danger" data-a="rm" title="Remove from this account">✕ Remove</button></td>`;
@@ -1075,14 +1113,19 @@ document.getElementById('file').onchange = async e => {
   try {
     const o = JSON.parse(await f.text());
     if (!o || typeof o.assign !== 'object') throw new Error('not a portfolio state file');
-    commit('Loaded state from ' + f.name, () => {
-      S.custom = Array.isArray(o.custom) ? o.custom.filter(r => Array.isArray(r) && r.length === COLS.length) : [];
+    const custom = Array.isArray(o.custom) ? o.custom.filter(r => Array.isArray(r) && r.length === COLS.length) : [];
+    const known = new Set([...D.rows.map(r => r[SYM]), ...custom.map(r => r[SYM])]);
+    // marks are applied outside commit(): its snapshot ignores them, so a marks-only file looked like "no change" and was never saved or shown
+    for (const m of MK) { const x = o[MARKS[m].s]; if (x && typeof x === 'object') S[MARKS[m].s] = Object.fromEntries(Object.entries(x).filter(([k]) => known.has(k))); }
+    const msg = 'Loaded state from ' + f.name;
+    const changed = commit(msg, () => {
+      S.custom = custom;
       reindex();
       S.assign = {};
       for (const [s, v] of Object.entries(o.assign)) if (BY.has(s) && ACCS.includes(v.a) && LISTS.includes(v.l)) S.assign[s] = {a: v.a, l: v.l};
       if (o.targets) S.targets = Object.assign(S.targets, o.targets);
-      for (const m of MK) { const x = o[MARKS[m].s]; if (x && typeof x === 'object') S[MARKS[m].s] = Object.fromEntries(Object.entries(x).filter(([k]) => BY.has(k))); }
     });
+    if (!changed) { save(); renderAll(); toast(msg, false); }   // only marks changed: commit() returned early without saving or redrawing
   } catch (err) { alert('Could not load that file: ' + err.message); }
 };
 
@@ -1209,7 +1252,7 @@ function drawDetail() {
   if (has('Dividend Yield %')) tiles.push(['Dividend yield|Dividend Yield %', pct('Dividend Yield %'), has('Dividend/Share (annual)') ? `₹${num('Dividend/Share (annual)')} / share` : '']);
   if (has('ROE % (avg 4y)')) tiles.push(['ROE (4y avg)|ROE % (avg 4y)', pct('ROE % (avg 4y)'), has('ROE %') ? `latest ${pct('ROE %')}` : '']);
   else if (has('ROE %')) tiles.push(['ROE|ROE %', pct('ROE %'), '']);
-  if (has('Return 1y %')) tiles.push(['1y return|Return 1y %', pct('Return 1y %'), has('Return 3y %') ? `3y ${pct('Return 3y %')}` : '', sign('Return 1y %')]);
+  if (has('Return 1y %')) tiles.push(['1y return|Return 1y %', pct('Return 1y %'), ['2y', '3y', '4y', '5y'].filter(h => has(`Return ${h} %`)).map(h => `${h} ${pct(`Return ${h} %`)}`).join(' · '), sign('Return 1y %')]);
   if (has('Score')) tiles.push(['Screen score|Score', num('Score') + '<small style="font-size:12px;color:var(--muted)"> /100</small>', 'quality-weighted', '']);
 
   // 52-week range
@@ -1296,6 +1339,7 @@ function renderTabs() {
     else if (id[0] === 'a') badge = accRows(+id.slice(1)).length;
     else if (id === 'chg') badge = n;
     else if (id === 'star') badge = MK.reduce((n, m) => n + markCount(m), 0);
+    else if (id === 'cmp') badge = (S.cmp || []).filter(x => x !== '_none' && BY.has(x)).length || '';
     const dot = id[0] === 'a' && id !== 'all' ? `<span class="dot" style="background:var(--a${id.slice(1)})"></span>` : '';
     return `<button role="tab" aria-selected="${id === tab}" data-t="${id}">${dot}${name}${badge !== '' ? `<span class="n">${badge}</span>` : ''}</button>`;
   }).join('');
@@ -1630,7 +1674,7 @@ addEventListener('resize', () => { if (tab !== 'bt') return; clearTimeout(btResi
 
 // ---------- sectors tab ----------
 const SEC = D.sec ? D.sec.rows.map(r => Object.fromEntries(D.sec.cols.map((c, i) => [c, r[i]]))) : null;
-const SEC_HZ = ['1Y', '2Y', '3Y', '5Y', '10Y', '15Y', '20Y', '25Y', '30Y'];
+const SEC_HZ = ['1Y', '2Y', '3Y', '4Y', '5Y', '10Y', '15Y', '20Y', '25Y', '30Y'];
 let secHz = '5Y', secMode = 'cagr', secCat = '', secAll = false;
 const secVal = (r, k) => {
   if (SEC_HZ.includes(k)) return r[`${k} ${secMode === 'cagr' ? 'CAGR %' : '%'}`];
@@ -1722,7 +1766,7 @@ const PK_NUM = new Set(['Rank', 'Market Cap (Cr)', 'Score', 'Quality (0-100)', '
 const PK_CAT = new Set(['Group', 'Cap Class', 'Industry', 'In your lists', 'Filtered Out Because']);
 const PK_COLS = ['Group', 'Rank', 'Symbol', 'Company', 'Industry', 'Cap Class', 'Market Cap (Cr)', 'Score', 'Quality (0-100)', 'Safety (0-100)', 'Value (0-100)', 'Income (0-100)', 'Trend (0-100)', 'P/E', 'PE vs sector', 'P/B', 'ROE % (avg 4y)', 'Revenue CAGR %', 'Profit CAGR %', 'Debt/Equity', 'Interest Cover', 'Dividend Yield %', 'Promoter %', 'Promoter chg 1y (pp)', '% Below 52W High', 'In your lists', ...SEC_HZ, 'Since start', 'Data since', 'Filtered Out Because', 'Data notes'];
 const PKM = Object.fromEntries(PK_COLS.map(k => [k, {k, t: PK_NUM.has(k) ? 'num' : PK_CAT.has(k) ? 'cat' : 'text', d: ['Rank', 'Market Cap (Cr)', 'Score', 'Quality (0-100)', 'Safety (0-100)', 'Value (0-100)', 'Income (0-100)', 'Trend (0-100)'].includes(k) ? 0 : 1, g: SEC_HZ.includes(k) || k === 'Since start' ? 'Returns' : 'Screen & fundamentals'}]));
-const PK_DEF = ['Rank', 'Symbol', 'Cap Class', 'Score', '1Y', '3Y', '5Y', '10Y', '15Y', '20Y', 'Since start', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %', 'Data since', 'Data notes'];
+const PK_DEF = ['Rank', 'Symbol', 'Cap Class', 'Score', '1Y', '2Y', '3Y', '4Y', '5Y', '10Y', '15Y', '20Y', 'Since start', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %', 'Data since', 'Data notes'];
 function pkRow(r, T) {
   const isIdx = r._index;
   return `<tr ${isIdx ? '' : `data-sym="${esc(r.Symbol)}"`} class="${isIdx ? 'idx gsep' : rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
@@ -1812,10 +1856,10 @@ const T10_UNIQ = T10 ? (() => {
   out.forEach((r, i) => { r.Rank = i + 1; });
   return out;
 })() : [];
-const RET_COLS = ['1Y %', '3Y %', '5Y %', '1Y CAGR %', '3Y CAGR %', '5Y CAGR %'];
+const RET_COLS = ['1Y %', '2Y %', '3Y %', '4Y %', '5Y %', '1Y CAGR %', '2Y CAGR %', '3Y CAGR %', '4Y CAGR %', '5Y CAGR %'];
 const T10_NUM = new Set([...RET_COLS, 'Overall rank', 'Best rank', 'Sector lists', 'Rank', 'Score v3', 'Score v3 (before caps)', ...T10_PIL, 'Score v2 (portfolio screen)', 'Market Cap (Cr)', 'Price', 'P/E', 'PE vs sector', 'Forward P/E', 'PEG', 'EV/EBITDA', 'P/B', 'FCF Yield %', 'ROE % (latest)', 'ROE % (avg 4y)', 'ROE % (worst yr)', 'Operating Margin', 'Net Margin', 'Revenue CAGR %', 'Profit CAGR %', 'Debt/Equity', 'Interest Cover', 'Beta', 'Volatility %', 'Max Drawdown 3y %', 'Dividend Yield %', 'Payout Ratio', 'Promoter %', 'Promoter chg 1y (pp)', 'Price vs 200DMA %', '% Below 52W High', 'Turnover (Lakh/day)', '3-5y CAGR %', 'Params used', 'Members', 'Members scored']);
 const T10M = T10 ? Object.fromEntries(D.top10.cols.map(k => [k, {k, t: T10_NUM.has(k) ? 'num' : ['Sector index', 'Cap Class', 'Sector', 'Industry', 'In your lists'].includes(k) ? 'cat' : 'text', d: ['Rank', 'Params used', 'Members', 'Members scored', 'Market Cap (Cr)'].includes(k) ? 0 : 1, g: T10_PIL.includes(k) || /Score/.test(k) ? 'Score' : 'Fundamentals & notes'}])) : {};
-const T10_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '3Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Cap Class', 'In your lists', 'Score v2 (portfolio screen)'];
+const T10_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '2Y %', '3Y %', '4Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Cap Class', 'In your lists', 'Score v2 (portfolio screen)'];
 function t10Row(r, T) {
   return `<tr data-sym="${esc(r.Symbol)}" class="${rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = r[k], m = T10M[k];
@@ -1854,7 +1898,7 @@ function mountTop10() {
   const nice = t10Nice;
   view.innerHTML = `
     <div class="toolbar"><label style="display:flex;gap:8px;align-items:center;font-weight:600">Sector
-      <select data-t10 aria-label="Sector index" style="min-width:280px"><option value="">All 23 sectors (${T10_UNIQ.length} unique stocks)</option>${T10_SECTORS.map(s0 => `<option value="${esc(s0)}" ${s0 === t10Sec ? 'selected' : ''}>${esc(nice(s0))} (${T10.find(r => r['Sector index'] === s0).Members})</option>`).join('')}</select></label>
+      <select data-t10 aria-label="Sector index" style="min-width:280px"><option value="">All ${T10_SECTORS.length} sectors (${T10_UNIQ.length} unique stocks)</option>${T10_SECTORS.map(s0 => `<option value="${esc(s0)}" ${s0 === t10Sec ? 'selected' : ''}>${esc(nice(s0))} (${T10.find(r => r['Sector index'] === s0).Members})</option>`).join('')}</select></label>
       <span class="grow"></span><span class="count">${t10Sec ? `${first['Members scored']} of ${first.Members} members scored · ${esc(first['Membership source'] || '')}` : `${T10_UNIQ.length} unique stocks from ${T10.length} sector-list entries · ×n = in n lists`}</span><button data-t10dl>⬇ CSV</button></div>
     <div class="note warn" style="margin:0 0 12px">A rules-based screen, not personal advice. Professional managers also weigh management quality, promoter pledges, bank NPAs, order books and valuation history - none of which is in this data. Use the reasons to decide what to research next.</div>
     <div class="panel"><h3>${t10Sec ? esc(nice(t10Sec)) + ' — top ' + T10.filter(r => r['Sector index'] === t10Sec).length + (T10.filter(r => r['Sector index'] === t10Sec).length < 10 ? ` <small style="font-weight:400;color:var(--muted)">(only ${T10.filter(r => r['Sector index'] === t10Sec).length} of ${first['Members scored']} clear the bar)</small>` : '') : 'All sectors — unique stocks, best first'}${ii('Score v3')}</h3><div class="sub">Ranked by the v3.1 fund-manager score (all cheat-sheet parameters + returns). A stock needs <b>v3 ≥ 50 and no red flags</b> to make a list, so weak sectors show fewer than 10. Your ★ shortlisted stocks are always added at the end, marked “★ your pick”.${t10Sec ? ` <label style="margin-left:8px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-below ${t10Below ? 'checked' : ''}> Show members below the bar</label>` : ''} Pillar columns show points earned out of their weight. Click a stock for its full fundamentals; hover ⓘ for definitions.${t10Sec && first['Not scored (outside Nifty 500 data)'] ? ' Not scored (no fundamentals in the data): ' + esc(first['Not scored (outside Nifty 500 data)']) + '.' : ''}</div><div data-t10t></div></div>
@@ -1881,7 +1925,7 @@ function mountTop10() {
 // ---------- Nifty 100: every member ranked on the v3 score ----------
 const N100 = D.n100 ? D.n100.rows.map(r => Object.fromEntries(D.n100.cols.map((c, i) => [c, r[i]]))) : null;
 const N100M = N100 ? Object.fromEntries(D.n100.cols.map(k => [k, {k, t: T10_NUM.has(k) ? 'num' : ['Sector', 'Cap Class', 'Industry', 'In your lists'].includes(k) ? 'cat' : 'text', d: ['Rank', 'Sector lists', 'Params used', 'Market Cap (Cr)'].includes(k) ? 0 : 1, g: RET_COLS.includes(k) ? 'Returns' : T10_PIL.includes(k) || /Score/.test(k) ? 'Score' : 'Fundamentals & notes'}])) : {};
-const N100_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '3Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Sector', 'In sector lists', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %'];
+const N100_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '2Y %', '3Y %', '4Y %', '5Y %', 'Why this rank', 'Strengths', 'Weaknesses', 'Red flags', ...T10_PIL, 'Sector', 'In sector lists', 'In your lists', 'P/E', 'ROE % (avg 4y)', 'Dividend Yield %'];
 function mountN100() {
   if (!N100) { view.innerHTML = '<div class="empty">No Nifty 100 ranking in this build - run pipeline step 17, then 18.</div>'; return; }
   const n100Rows = () => n100All ? N100 : N100.filter(r => clearsBar(r) || isStar(r.Symbol));
@@ -1912,7 +1956,20 @@ function mountN100() {
 VIRT._v3 = {k: '_v3', label: 'Score v3', t: 'num', g: 'Portfolio'};
 VIRT._star = {k: '_star', label: 'Marked on', t: 'text', g: 'Portfolio'};
 VIRT._mark = {k: '_mark', label: 'Mark', t: 'cat', g: 'Portfolio'};
-const DEF_STAR = ['_chk', '_mark', '_asg', 'Symbol', 'Company', 'Sector', 'Cap Class', '_v3', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Price', 'P/E', 'PE vs sector', 'ROE % (avg 4y)', 'Profit CAGR %', 'Debt/Equity', 'Dividend Yield %', 'Market Cap (Cr)', '_star'];
+// v3 detail as shortlist columns, keyed 'v3:<Score_v3_Nifty500.csv column>': pillar scores, CAGRs, and the screen's reasoning
+const V3_PILLARS = ['Quality (24)', 'Growth (17)', 'Valuation (16)', 'Safety (14)', 'Shareholder (6)', 'Returns (23)'];
+const V3_WHY = ['Strengths', 'Weaknesses', 'Red flags', 'Returns note', 'Notes'];
+const V3_EXTRA = [...V3_PILLARS.map(c => [c, 'num', 1, 'v3 score']), ...['2Y', '3Y', '4Y', '5Y'].map(h => [h + ' CAGR %', 'num', 1, 'v3 returns', 1]), ['ROE % (worst yr)', 'num', 1, 'v3 returns'],
+  ...V3_WHY.map(c => [c, 'text', 0, 'v3 reasoning'])].filter(([c]) => D.v3all && D.v3all.cols.includes(c));
+for (const [c, t, d, g, signed] of V3_EXTRA) VIRT['v3:' + c] = {k: 'v3:' + c, label: c, t, d, g: g === 'v3 returns' ? 'v3 score' : g, v3: c, signed: !!signed};
+const DEF_STAR = ['_chk', '_mark', '_asg', 'Symbol', 'Company', 'Sector', 'Cap Class',
+  '_v3', ...V3_PILLARS.map(c => 'v3:' + c), 'Score',
+  'Return 1y %', 'Return 2y %', 'Return 3y %', 'Return 4y %', 'Return 5y %', 'v3:2Y CAGR %', 'v3:3Y CAGR %', 'v3:4Y CAGR %', 'v3:5Y CAGR %',
+  'Price', 'Market Cap (Cr)', 'P/E', 'PE vs sector', 'Forward P/E', 'PEG', 'EV/EBITDA', 'P/B', 'FCF Yield %', 'Dividend Yield %',
+  'ROE %', 'ROE % (avg 4y)', 'v3:ROE % (worst yr)', 'Revenue CAGR %', 'Profit CAGR %', 'Operating Margin', 'Net Margin',
+  'Debt/Equity', 'Interest Cover', 'Promoter %', 'Promoter chg 1y (pp)', '% Below 52W High', 'Price vs 200DMA %', 'Volatility %', 'Max Drawdown 3y %',
+  ...V3_WHY.map(c => 'v3:' + c), '_star'].filter(k => VIRT[k] || CI[k] != null);
+const STAR_PICK = [VIRT._mark, VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIRT['v3:' + c]), ...COLS, VIRT._star];
 let stView = 'star';
 try { stView = sessionStorage.getItem(STORE + '-stview') || 'star'; } catch (e) {}
 function mountShortlist() {
@@ -1920,7 +1977,8 @@ function mountShortlist() {
   const marked = m => Object.keys(S[MARKS[m].s]);
   const rowsFn = () => (stView === 'all' ? MK.flatMap(marked) : marked(stView)).map(s0 => BY.get(s0)).filter(Boolean).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
   const noun = stView === 'all' ? 'marked stocks' : MARKS[stView].n.toLowerCase() + ' stocks';
-  const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'marked stocks', empty: '',
+  if (V3_EXTRA.length && S.vis.star && !S.vis.star.some(k => String(k).startsWith('v3:'))) delete S.vis.star;   // column set saved before the v3 detail columns existed
+  const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'marked stocks', empty: '', pick: STAR_PICK,
     extraTools: `<span style="color:var(--muted);font-size:12.5px;margin-left:4px">Selected →</span>${MK.map(m => `<button data-mv="${m}" title="Mark the ticked stocks ${MARKS[m].n.toLowerCase()}"><b class="st on ${m}" style="padding:0 3px 0 0">${MARKS[m].i}</b>${MARKS[m].v}</button>`).join('')}<button data-mv="" title="Remove the mark from the ticked stocks">Clear mark</button><button data-r="cmpsel" title="Open the selected (or all in this view, if none selected) in Compare - up to 10">⚖ Compare</button><button class="ghost danger" data-r="clearstars">Clear list</button>`});
   T.rowsFn = rowsFn; T.opts.noun = noun;
   T.opts.empty = stView === 'all' ? 'Nothing marked yet — click ★ ? or ✗ next to any stock in any tab (or in its popup).' : `No ${MARKS[stView].n.toLowerCase()} stocks — click ${MARKS[stView].i} next to any stock in any tab.`;
@@ -1956,6 +2014,8 @@ const V3 = D.v3all ? new Map(D.v3all.rows.map(r => [r[D.v3all.cols.indexOf('Symb
 const N100RANK = N100 ? new Map(N100.map(r => [r.Symbol, r.Rank])) : new Map();
 const T10LISTS = (() => { const m = new Map(); for (const r of (T10 || [])) { const a = m.get(r.Symbol) || []; a.push(`${t10Nice(r['Sector index'])} #${r.Rank}`); m.set(r.Symbol, a); } return m; })();
 // [label, getter key, source, decimals, better: up|down|null]  - source u = universe row, v = v3 detail, x = computed
+// Yahoo consensus (strong_buy … strong_sell, 'none') -> [label, tone]: buy green, sell red, hold / no rating amber
+const avPill = v => { const k = String(v ?? '').toLowerCase(); return /buy|outperform/.test(k) ? [k === 'strong_buy' ? 'Strong buy' : 'Buy', 'buy'] : /sell|underperform/.test(k) ? [k === 'strong_sell' ? 'Strong sell' : k === 'underperform' ? 'Underperform' : 'Sell', 'sell'] : k === 'hold' ? ['Hold', 'hold'] : ['No rating', 'hold']; };
 const CMP_ROWS = [
   ['Overview'],
   ['Company', 'Company', 'u', 't'], ['Sector', 'Sector', 'u', 't'], ['Industry', 'Industry', 'u', 't'], ['Cap class', 'Cap Class', 'u', 't'],
@@ -1963,7 +2023,7 @@ const CMP_ROWS = [
   ['Scores'],
   ['v3 fund-manager score', 'Score v3', 'v', 1, 'up', 100], ...(D.v3all ? D.v3all.cols.filter(c => PIL_RX.test(c)).map(c => [c, c, 'v', 1, 'up', +c.match(/\((\d+)\)/)[1]]) : []), ['v2 portfolio-screen score', 'Score', 'u', 0, 'up'],
   ['Returns (price, same dates as every tab)'],
-  ['1Y %', '1Y %', 'v', 1, 'up'], ['3Y %', '3Y %', 'v', 1, 'up'], ['5Y %', '5Y %', 'v', 1, 'up'], ['3Y CAGR %', '3Y CAGR %', 'v', 1, 'up'], ['5Y CAGR %', '5Y CAGR %', 'v', 1, 'up'],
+  ...['1Y', '2Y', '3Y', '4Y', '5Y'].map(h => [h + ' %', h + ' %', 'v', 1, 'up']), ...['2Y', '3Y', '4Y', '5Y'].map(h => [h + ' CAGR %', h + ' CAGR %', 'v', 1, 'up']),
   ['Valuation'],
   ['Market cap (₹ Cr)', 'Market Cap (Cr)', 'u', 0, null], ['Price (₹)', 'Price', 'u', 2, null], ['P/E', 'P/E', 'u', 1, 'down'], ['P/E vs sector', 'PE vs sector', 'u', 2, 'down'],
   ['Forward P/E', 'Forward P/E', 'u', 1, 'down'], ['PEG', 'PEG', 'u', 2, 'down'], ['EV/EBITDA', 'EV/EBITDA', 'u', 1, 'down'], ['P/B', 'P/B', 'u', 2, 'down'], ['FCF yield %', 'FCF Yield %', 'u', 2, 'up'],
@@ -1982,6 +2042,8 @@ const CMP_ROWS = [
   ['v3 parameter grades (0 = red zone, 1 = green zone)'],
   ...(D.v3all ? D.v3all.cols.filter(c => c.startsWith('pt: ')).map(c => [c.slice(4), c, 'v', 2, 'up', 1]) : []),
 ];
+// rows highlighted across every stock so they are easy to spot; Red flags gets a red tint instead
+const CMP_KEY = new Set(['Score v3', '3Y CAGR %', '5Y CAGR %', 'Price', 'P/E', 'PE vs sector', 'ROE % (avg 4y)', 'Debt/Equity', '% Below 52W High', 'Upside to target %', 'Red flags']);
 let cmpQ = '';
 function cmpGet(sym, key, src) {
   if (src === 'x') {
@@ -2004,7 +2066,7 @@ function mountCompare() {
     if (spec.length === 1) { rowsHtml += `<tr class="grp"><td colspan="${syms.length + 1}">${esc(spec[0])}</td></tr>`; continue; }
     const [lab, key, src, d, better, max] = spec;
     const vals = syms.map(s0 => cmpGet(s0, key, src));
-    if (vals.every(v => v == null || v === '')) continue;
+    if (vals.every(v => v == null || v === '') && key !== 'Analyst View') continue;   // analyst view always shows: "No rating" is information too
     let best = null;
     if (better && syms.length > 1) {
       const nums = vals.map(v => (typeof v === 'number' ? v : null));
@@ -2012,7 +2074,8 @@ function mountCompare() {
       if (ok.length >= 2 && new Set(ok).size > 1) best = better === 'up' ? Math.max(...ok) : Math.min(...ok);
     }
     const gl = GL[key] || GL[lab];
-    rowsHtml += `<tr><td>${esc(lab)}${dirMark(key) || (better ? `<span class="dirm ${better}" title="${better === 'up' ? 'Higher' : 'Lower'} is better">${better === 'up' ? '↑' : '↓'}</span>` : '')}${GL[key] ? ii(key) : ''}</td>` + vals.map((v, i) => {
+    rowsHtml += `<tr${CMP_KEY.has(key) ? ` class="hl${key === 'Red flags' ? ' flag' : ''}"` : ''}><td>${esc(lab)}${dirMark(key) || (better ? `<span class="dirm ${better}" title="${better === 'up' ? 'Higher' : 'Lower'} is better">${better === 'up' ? '↑' : '↓'}</span>` : '')}${GL[key] ? ii(key) : ''}</td>` + vals.map((v, i) => {
+      if (key === 'Analyst View') { const a = avPill(v); return `<td><span class="avp ${a[1]}">${esc(a[0])}</span></td>`; }
       if (v == null || v === '') return `<td class="na">–</td>`;
       if (d === 't') return `<td class="txt">${key === '_held' ? `<span class="badge a${ACC_OF[String(v).split(' · ')[0]]}">${esc(v)}</span>` : esc(v)}</td>`;
       if (d === 'txt') return `<td class="txt">${esc(v)}</td>`;
@@ -2027,11 +2090,13 @@ function mountCompare() {
   view.innerHTML = `
     <div class="cmp-pick"><b>Compare</b>${chips}
       ${syms.length < 10 ? `<span class="srch"><input type="search" id="cmp-q" placeholder="Add a stock (symbol or company)…" value="${esc(cmpQ)}" aria-label="Add a stock to compare" autocomplete="off"><div class="drop" data-drop hidden></div></span>` : '<span class="count">Maximum 10 stocks - remove one to add another</span>'}
-      <span class="grow" style="flex:1"></span><button data-cmpdl>⬇ CSV</button></div>
+      <span class="grow" style="flex:1"></span>${syms.length ? '<button class="ghost danger" data-cmpclr title="Remove every stock from Compare">Clear all</button>' : ''}<button data-cmpdl>⬇ CSV</button></div>
     <div class="panel" style="padding:0;overflow:auto;max-height:calc(100vh - 220px)"><table class="cmp"${syms.length > 3 ? ` style="table-layout:fixed;width:${230 + syms.length * 175}px"` : ''}>${syms.length > 3 ? `<colgroup><col style="width:230px">${syms.map(() => '<col style="width:175px">').join('')}</colgroup>` : ''}<thead><tr><th>Parameter</th>${head}</tr></thead><tbody>${winRow}${rowsHtml}</tbody></table></div>
     <p class="hint">★ = best in the row, using each metric's better-direction from the cheat sheet (↑ higher / ↓ lower is better; context-dependent rows are not starred). Fundamentals are as of 1 Oct 2026; v3 details exist for Nifty 500 stocks only. Use ⚖ Compare in any stock's popup, or select stocks in ★ Shortlist, to add them here (up to 10).</p>`;
   view.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { S.cmp = S.cmp.filter(x => x !== b.dataset.rm); if (!S.cmp.length) S.cmp = ['_none']; save(); mountCompare(); });
   view.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(b.dataset.open, syms));
+  const clr = view.querySelector('[data-cmpclr]');
+  if (clr) clr.onclick = () => { const n = syms.length; S.cmp = ['_none']; save(); renderTabs(); mountCompare(); toast(`Cleared ${n} stock${n > 1 ? 's' : ''} from Compare`, false); };
   view.querySelector('[data-cmpdl]').onclick = () => {
     const rows = CMP_ROWS.filter(x => x.length > 1).map(([lab, key, src]) => [lab, ...syms.map(s0 => cmpGet(s0, key, src))]);
     const q = v => { if (v == null) return ''; const t0 = String(v); return /[",\n]/.test(t0) ? '"' + t0.replace(/"/g, '""') + '"' : t0; };
@@ -2189,7 +2254,7 @@ if (TEST) {
   }
   if (T10) {
     tab = 'top10'; mountView();
-    ok(T10_SECTORS.length === 23 && tables.top10.filtered().length <= 10 && tables.top10.filtered().every((r, i) => r.Rank === i + 1), 'top10: 23 sectors, first sector ranked 1..n');
+    ok(T10_SECTORS.length === 22 && !T10_SECTORS.some(s0 => /25\/50/.test(s0)) && tables.top10.filtered().length <= 10 && tables.top10.filtered().every((r, i) => r.Rank === i + 1), 'top10: 22 sectors (no 25/50 duplicate), first sector ranked 1..n');
     const sel = view.querySelector('[data-t10]'); sel.value = 'NIFTY BANK'; sel.dispatchEvent(new Event('change'));
     const b = tables.top10.filtered(); ok(b.length >= 5 && b.length <= 10 && b.every(clearsBar) && b.every(r => r['Sector index'] === 'NIFTY BANK') && b.every((r, i, x) => !i || x[i - 1]['Score v3'] >= r['Score v3']) && b.every(r => r['Why this rank']), 'top10: sector switch, sorted by v3, every row has a reason');
     sel.value = ''; sel.dispatchEvent(new Event('change'));
@@ -2212,12 +2277,16 @@ if (TEST) {
     addToCompare('NSE:AXISBANK'); ok(S.cmp.length === 4 && view.querySelectorAll('table.cmp thead th').length === 5, 'compare: popup ⚖ adds a 4th stock');
     ['NSE:KOTAKBANK', 'NSE:INDUSINDBK', 'NSE:BANKBARODA', 'NSE:PNB', 'NSE:CANBK', 'NSE:UNIONBANK', 'NSE:FEDERALBNK'].forEach(addToCompare);
     ok(S.cmp.length === 10 && view.querySelectorAll('table.cmp thead th').length === 11 && !view.querySelector('#cmp-q'), 'compare: up to 10 stocks, search hidden at the limit');
+    view.querySelector('[data-cmpclr]').click(); ok(S.cmp.length === 1 && S.cmp[0] === '_none' && !view.querySelector('table.cmp thead th + th') && !view.querySelector('[data-cmpclr]'), 'compare: Clear all empties the list');
     S.cmp = keep; tab = 'all'; mountView();
   }
   {
     const keepS = [S.stars, S.doubts, S.rejects]; S.stars = {}; S.doubts = {}; S.rejects = {}; const keepV = stView; stView = 'star';
     tab = 'all'; mountView(); const bar = view.querySelector('[data-tbl="all"] td.sym .mkbar'), btn = bar.querySelector('[data-mark="star"]'); const sym0 = btn.dataset.msym;
     ok(bar.querySelectorAll('[data-mark]').length === 3 && !popEl, 'mark: ★ ? ✗ shown inline beside every ticker');
+    { const keepC = S.cmp, cb = bar.querySelector('[data-cmp]'); S.cmp = ['_none']; cb.click();
+      ok(S.cmp.length === 1 && S.cmp[0] === cb.dataset.cmp && cb.classList.contains('on') && tab === 'all', 'compare: inline ⚖ adds the stock and stays on the table');
+      cb.click(); ok(!inCmp(cb.dataset.cmp) && !cb.classList.contains('on'), 'compare: inline ⚖ again removes it'); S.cmp = keepC; }
     btn.click();
     ok(isStar(sym0) && btn.classList.contains('on') && document.querySelector('nav.tabs [data-t="star"] .n').textContent === '1', 'mark: ★ in a table row shortlists and updates the tab count');
     bar.querySelector('[data-mark="rej"]').click();

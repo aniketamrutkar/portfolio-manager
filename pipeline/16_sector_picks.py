@@ -10,7 +10,7 @@ import pandas as pd
 from common import OUT, SUGGESTED, START_EMPTY, run_resumable, load_json
 
 END_DATE = '2026-10-01'
-HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
+HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '4Y': 4, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
 is_break = lambda m: m <= -45 or m > 50     # ~-50% = unadjusted 1:1 bonus/split; > +50% = bad data. Smaller moves (e.g. PNB +46% recap rally) are kept.
 PSU_BANKS = ['SBIN', 'BANKBARODA', 'PNB', 'CANBK', 'UNIONBANK', 'INDIANB', 'BANKINDIA', 'IOB', 'CENTRALBK', 'UCOBANK', 'MAHABANK', 'PSB']
 PHARMA_IND = ['Drug Manufacturers - Specialty & Generic', 'Drug Manufacturers - General', 'Biotechnology', 'Specialty Chemicals']

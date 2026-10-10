@@ -3,9 +3,10 @@ Open the result with #selftest appended to the URL to run the built-in checks.""
 import pandas as pd, numpy as np, json, os, datetime
 from common import OUT as B, HERE, load_json, ACCOUNTS, ACCOUNT_ID, SUGGESTED, START_EMPTY
 u = pd.read_csv(f'{B}/All_Scrips_NSE_BSE.csv', dtype={'BSE Code': str})
-if os.path.exists(f'{B}/Returns_Nifty500.csv'):        # consistent 1/3/5Y returns (step 17) override the older per-stock fields
+if os.path.exists(f'{B}/Returns_Nifty500.csv'):        # consistent 1/2/3/4/5Y returns (step 17) override the older per-stock fields
     _r = pd.read_csv(f'{B}/Returns_Nifty500.csv').set_index('Symbol')
-    for src, dst in (('1Y %', 'Return 1y %'), ('3Y %', 'Return 3y %'), ('5Y %', 'Return 5y %')):
+    for src, dst in (('1Y %', 'Return 1y %'), ('2Y %', 'Return 2y %'), ('3Y %', 'Return 3y %'), ('4Y %', 'Return 4y %'), ('5Y %', 'Return 5y %')):
+        if src not in _r: continue
         m = u.Symbol.isin(_r.index); u.loc[m, dst] = u.loc[m, 'Symbol'].map(_r[src])
 n = pd.read_csv(f'{B}/Nifty500_Analysis.csv')
 
@@ -23,7 +24,7 @@ TEXT = {'Symbol', 'Company', 'BSE Code', 'ISIN', 'Industry'}
 DEC0 = {'Market Cap (Cr)', 'AUM (Cr)', 'Avg Volume', 'Score', 'Quality (0-100)', 'Safety (0-100)', 'Value (0-100)', 'Income (0-100)', 'Trend (0-100)'}
 GROUP = {**{c: 'Identity' for c in ['Symbol', 'Company', 'Instrument Type', 'Exchange', 'BSE Code', 'ISIN', 'Series', 'Sector', 'Industry', 'Cap Class', 'Nifty500']},
          **{c: 'Valuation' for c in ['Market Cap (Cr)', 'AUM (Cr)', 'Price', 'P/E', 'P/B', 'PE vs sector', 'Forward P/E', 'PEG', 'EV/EBITDA', 'FCF Yield %']},
-         **{c: 'Price & returns' for c in ['52W High', '52W Low', '% Below 52W High', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'Volatility %',
+         **{c: 'Price & returns' for c in ['52W High', '52W Low', '% Below 52W High', 'Return 1y %', 'Return 2y %', 'Return 3y %', 'Return 4y %', 'Return 5y %', 'Volatility %',
                                             'Max Drawdown 3y %', 'Price vs 200DMA %', 'Upside to target %', 'Avg Volume', 'Turnover Last Day (Lakh)']},
          **{c: 'Dividends' for c in ['Dividend/Share (annual)', 'Dividend Yield %', 'Payout Ratio', 'Expense Ratio %']},
          **{c: 'Quality & growth' for c in ['ROE %', 'ROE % (avg 4y)', 'Revenue CAGR %', 'Profit CAGR %', 'Debt/Equity', 'Interest Cover', 'Operating Margin',

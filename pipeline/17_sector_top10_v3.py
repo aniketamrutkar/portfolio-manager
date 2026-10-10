@@ -1,6 +1,6 @@
 """Step 17 - "v3" fund-manager score using EVERY parameter on the Ratio Cheat Sheet, then the top 10 stocks of each of NSE's
-23 sectoral indices with a written rationale per stock. Independent of the account lists and of the step-12 score.
--> ../Score_v3_Nifty500.csv (every Nifty 500 stock), ../Sector_Top10_v3.csv (23 sectors, every scored member ranked; 'In top 10' = best 10 that clear the bar: v3 >= 50, no red flags),
+22 sectoral indices with a written rationale per stock. Independent of the account lists and of the step-12 score.
+-> ../Score_v3_Nifty500.csv (every Nifty 500 stock), ../Sector_Top10_v3.csv (22 sectors, every scored member ranked; 'In top 10' = best 10 that clear the bar: v3 >= 50, no red flags),
    ../Nifty100_v3.csv (all Nifty 100 members ranked), ../Returns_Nifty500.csv (1/3/5Y, via returns_135.py)
 
 Method (quality-at-a-reasonable-price, the way a long-only fund manager ranks within a sector):
@@ -13,7 +13,8 @@ Method (quality-at-a-reasonable-price, the way a long-only fund manager ranks wi
   * red-flag caps: loss-making 35 · repeated losses 45 · D/E > 150 or interest cover < 2 (non-financials) 45 ·
     promoter < 20% and down > 5 pts 45 · turnover < Rs 10 lakh/day 40 · P/E > 90 50 ·
     negative 1Y/3Y/5Y returns 50 · 3Y and 5Y CAGR both < -5% 45 · 1Y fall worse than -35% 60
-Sector membership: NSE's official constituent files for 19 indices (sector_constituents.json); Chemicals, Nifty500 Healthcare,
+Sector membership: NSE's official constituent files for 18 indices (sector_constituents.json; Nifty Financial Services 25/50 is skipped -
+same members as Nifty Financial Services, only the weights are capped, so its v3 ranking is identical); Chemicals, Nifty500 Healthcare,
 REITs & Realty and Cement have no published file yet and are derived from NSE sector / industry classification (flagged)."""
 import json, math
 import numpy as np, pandas as pd
@@ -31,7 +32,7 @@ a['Turnover (Lakh/day)'] = (a['Avg Volume'] * a['PxU'] / 1e5).round(1)
 yrs3 = lambda r: ((1 + r / 100) ** (1 / 3) - 1) * 100 if pd.notna(r) and r > -100 else np.nan
 yrs5 = lambda r: ((1 + r / 100) ** (1 / 5) - 1) * 100 if pd.notna(r) and r > -100 else np.nan
 a['Long CAGR %'] = [yrs5(r5) if pd.notna(r5) else yrs3(r3) for r5, r3 in zip(a['Return 5y %'], a['Return 3y %'])]
-import returns_135                                     # 1/3/5-year price returns on the app-wide dates (cached in raw_ret_hist.json)
+import returns_135                                     # 1/2/3/4/5-year price returns on the app-wide dates (cached in raw_ret_hist.json)
 RET = returns_135.build(sorted(a.Sym.unique()))
 a = a.merge(RET, on='Symbol', how='left')
 N500_3Y = 8.2                                          # Nifty 500 3-yr CAGR over the same window (Sector_Returns.csv), for relative strength
@@ -161,7 +162,7 @@ A['In your lists'] = A.Symbol.map(held).fillna('')
 A = A.merge(RET, on='Symbol', how='left')
 A.sort_values('Score v3', ascending=False).to_csv(f'{OUT}/Score_v3_Nifty500.csv', index=False)
 
-# ---- 23 sectoral indices ----
+# ---- 22 sectoral indices ----
 BAR = 50                                                  # minimum v3 score (and no red flags) to appear in a sector top-10
 cons = json.load(open('sector_constituents.json'))
 derived = {'NIFTY CHEMICALS': a.Sector.eq('Chemicals'),
@@ -169,7 +170,9 @@ derived = {'NIFTY CHEMICALS': a.Sector.eq('Chemicals'),
            'NIFTY REITS & REALTY': a.Sector.eq('Realty'),
            'NIFTY CEMENT': a.Industry.eq('Building Materials') | (a.Sector.eq('Construction Materials') & a.Company.str.contains('Cement', case=False, na=False))}
 out = []
+SKIP_TOP10 = {'NIFTY FINANCIAL SERVICES 25/50'}           # same 20 stocks as NIFTY FINANCIAL SERVICES (25%/50% weight caps only): a duplicate list
 for idx, syms in cons.items():
+    if idx in SKIP_TOP10: continue
     if syms: members, src = set(syms), 'NSE constituent file'
     else: members, src = set(a[derived[idx]].Sym), 'derived from NSE sector/industry (no constituent file published yet)'
     pool = A[A.Symbol.str[4:].isin(members)].sort_values('Score v3', ascending=False)
@@ -201,7 +204,7 @@ for idx, syms in cons.items():
 T = pd.concat(out, ignore_index=True)
 T.to_csv(f'{OUT}/Sector_Top10_v3.csv', index=False)
 
-# ---- consolidated: one row per unique stock across all 23 lists ----
+# ---- consolidated: one row per unique stock across all 22 lists ----
 pretty = lambda n: n.title().replace('Nifty500', 'Nifty 500').replace('It ', 'IT ').replace('Psu', 'PSU').replace('Fmcg', 'FMCG').replace('Reits', 'REITs').replace('Ex-Bank', 'ex-Bank').replace(' It', ' IT')
 T10only = T[T['In top 10']]
 g = T10only.groupby('Symbol', sort=False)
@@ -211,7 +214,7 @@ C['Best rank'] = g['Rank'].min().values
 C['Sector lists'] = g.size().values
 drop = ['Sector index', 'Rank', 'Members', 'Members scored', 'Membership source', 'Not scored (outside Nifty 500 data)', 'Why this rank'] + [c for c in C.columns if c.startswith('pt: ')]
 C = C.drop(columns=[c for c in drop if c in C.columns]).sort_values('Score v3', ascending=False)
-lead = ['Symbol', 'Company', 'Sector', 'Cap Class', 'Score v3', '1Y %', '3Y %', '5Y %', '3Y CAGR %', '5Y CAGR %', 'In sector lists', 'Best rank', 'Sector lists', 'In your lists']
+lead = ['Symbol', 'Company', 'Sector', 'Cap Class', 'Score v3', '1Y %', '2Y %', '3Y %', '4Y %', '5Y %', '2Y CAGR %', '3Y CAGR %', '4Y CAGR %', '5Y CAGR %', 'In sector lists', 'Best rank', 'Sector lists', 'In your lists']
 C = C[lead + [c for c in C.columns if c not in lead]]
 C.insert(0, 'Overall rank', range(1, len(C) + 1))
 print(f'{len(C)} unique stocks across {len(T10only)} sector-list rows (used for the Nifty 100 "In sector lists" column)')
