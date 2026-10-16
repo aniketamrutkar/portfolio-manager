@@ -295,7 +295,6 @@ tr.rej .tk{text-decoration:line-through}
 .mseg .ic{font-weight:800;margin-right:4px}
 .mseg .ic.star{color:#e0a100} .mseg .ic.doubt{color:#d97706} .mseg .ic.rej{color:var(--neg)}
 .mseg .n{color:var(--muted);font-weight:500;margin-left:4px}
-.hiseg{align-items:center;margin-top:-4px} .hiseg .lab{font-size:12.5px;color:var(--muted);font-weight:600;margin-right:2px} .hiseg button{padding:3px 9px} .hiseg .hr{margin-left:0;cursor:pointer}
 
 /* compare tab */
 .cmp-pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
@@ -337,12 +336,9 @@ table.cmp{border-collapse:separate;border-spacing:0;width:max-content;min-width:
 .cmp th .sub2{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
 
 /* multi-list count badge */
-.hr{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:var(--ok-soft);color:var(--pos);font-size:11px;font-weight:700;line-height:17px;cursor:help;vertical-align:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.hr small{font-size:9.5px;font-weight:600;margin-left:3px;opacity:.75}
-.hr.t2{box-shadow:inset 0 0 0 1px var(--pos)} .hr.t3,.hr.t4,.hr.t5{background:var(--pos);color:#fff} .hr.t5{box-shadow:0 0 0 2px var(--ok-soft)}
-:root[data-theme="dark"] .hr.t3,:root[data-theme="dark"] .hr.t4,:root[data-theme="dark"] .hr.t5{color:#06210f}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .hr.t3,:root:not([data-theme="light"]) .hr.t4,:root:not([data-theme="light"]) .hr.t5{color:#06210f}}
 .trd{display:inline-block;padding:0 7px;border-radius:9px;font-size:11.5px;font-weight:650;line-height:18px;white-space:nowrap}
+.trd.tg{margin-left:6px;padding:0 6px;font-size:10.5px;line-height:16px;vertical-align:1px;cursor:help}
+.trseg{align-items:center;margin-top:-4px} .trseg .lab{font-size:12.5px;color:var(--muted);font-weight:600;margin-right:2px} .trseg button{padding:3px 9px} .trseg .trd{cursor:pointer}
 .trd.acc{background:var(--pos);color:#fff} .trd.std{background:var(--ok-soft);color:var(--pos)} .trd.slw{background:var(--warn-soft);color:var(--warn)} .trd.dec{background:var(--neg);color:#fff}
 :root[data-theme="dark"] .trd.acc,:root[data-theme="dark"] .trd.dec{color:#0d1117}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .trd.acc,:root:not([data-theme="light"]) .trd.dec{color:#0d1117}}
@@ -568,16 +564,11 @@ const thinkBtn = sym => { const on = isThink(sym); return `<button class="mk thi
 const inCmp = sym => (S.cmp || []).includes(sym);
 const cmpTitle = on => on ? 'In Compare - click to remove' : 'Add to Compare (up to 10)';
 const cmpBtn = sym => { const on = inCmp(sym); return `<button class="mk cmp${on ? ' on' : ''}" data-cmp="${esc(sym)}" aria-pressed="${on}" title="${cmpTitle(on)}">⚖</button>`; };
-// 🚀 high-profit badge: the best of the 1/2/3/4/5Y price returns when it is above +100% (Nifty 500 on the app-wide dates; other scrips use their own fields)
-const HI_TIERS = [100, 500, 1000, 2000, 5000];        // above this % -> tier 1..5 (deeper green)
-const RET_HZ = [1, 2, 3, 4, 5];
-const rets = sym => { const r = BY.get(sym); return RET_HZ.map(y => { const v = r ? r[CI[`Return ${y}y %`]] : null; return typeof v === 'number' ? v : null; }); };
-const bestRet = sym => { const rs = rets(sym); let b = null; rs.forEach((v, i) => { if (v != null && (!b || v > b.v)) b = {v, y: RET_HZ[i]}; }); return b; };
-const tierOf = sym => { const b = bestRet(sym); return b ? HI_TIERS.filter(t => b.v > t).length : 0; };
-const fmtX = v => { const x = 1 + v / 100; return (x >= 10 ? Math.round(x) : x.toFixed(1).replace(/\.0$/, '')) + '×'; };
-const hiRet = sym => { const n = tierOf(sym); if (!n) return ''; const b = bestRet(sym), rs = rets(sym);
-  const tip = `High profit: best return +${Math.round(b.v).toLocaleString('en-IN')}% over ${b.y}Y (${fmtX(b.v)} the money)\n` + RET_HZ.map((y, i) => `${y}Y: ${rs[i] == null ? '–' : (rs[i] >= 0 ? '+' : '') + Math.round(rs[i]).toLocaleString('en-IN') + '%'}`).join(' · ') + `\nShown above +100%; deeper green above ${HI_TIERS.slice(1).map(t => t.toLocaleString('en-IN') + '%').join(' / ')}`;
-  return `<span class="hr t${n}" title="${esc(tip)}">🚀 +${Math.round(b.v).toLocaleString('en-IN')}%<small>${b.y}Y</small></span>`; };
+// price-trend tag after the ticker everywhere (Nifty 500 stocks; from returns_135.py): ⇈ Accelerating · → Steady · ↘ Slowing · ⇊ Declining
+const trendOf = sym => { const r = BY.get(sym); return (r && r[CI['Price trend']]) || ''; };
+const trendTag = sym => { const t = trendOf(sym), m = TREND[t]; if (!m) return ''; const r = BY.get(sym), g = k => r[CI[k]], p = v => v == null ? '–' : (v > 0 ? '+' : '') + Math.round(v) + '%';
+  const tip = `Price trend: ${t} - ${m[2]}\n1Y ${p(g('Return 1y %'))} · 3Y CAGR ${p(g('CAGR 3y %'))} · 5Y CAGR ${p(g('CAGR 5y %'))}\nYear by year: ${YOY.map(k => p(g(k))).join(', ')}`;
+  return `<span class="trd tg ${m[0]}" title="${esc(tip)}">${m[1]} ${esc(t)}</span>`; };
 const markBar = (sym, sm) => { const c = markOf(sym); return `<span class="mkbar${sm ? ' sm' : ''}" role="group" aria-label="Mark ${esc(short(sym))}">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}${thinkBtn(sym)}${sm ? cmpBtn(sym) : ''}</span>`; };
 function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
   if (!BY.has(sym)) return;
@@ -1010,7 +1001,7 @@ function rowHtml(r, T) {
     if (k === '_mark') { const m = markOf(s); return `<td>${m ? `<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${esc(MARKS[m].n)}` : ''}</td>`; }
     if (k === '_act') return `<td class="act"><button data-a="asg" title="Move to another account or list">⇄ Move</button><button class="danger" data-a="rm" title="Remove from this account">✕ Remove</button></td>`;
     const m = COLS[CI[k]], v = r[CI[k]];
-    if (k === 'Symbol') return `<td class="sym" title="Click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span><span class="cap" style="margin-left:6px;font-weight:400">${esc(String(v).split(':')[0])}</span>${hiRet(v)}</td>`;
+    if (k === 'Symbol') return `<td class="sym" title="Click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span><span class="cap" style="margin-left:6px;font-weight:400">${esc(String(v).split(':')[0])}</span>${trendTag(v)}</td>`;
     if (k === 'Company') return `<td class="co" title="${esc(v)}">${esc(v)}</td>`;
     if (k === 'Cap Class') return `<td>${v ? `<span class="cap ${esc(v)}">${esc(v)}</span>` : ''}</td>`;
     if (k === 'Price trend') return `<td>${trendChip(v)}</td>`;
@@ -1243,7 +1234,7 @@ function addModal(acc, list) {
     const top = scored.slice(0, 40).map(x => x[2]);
     res.innerHTML = top.length ? top.map(r => {
       const v = S.assign[r[SYM]], here = v && v.a === acc;
-      return `<div class="res" data-sym="${esc(r[SYM])}"><span class="s">${esc(short(r[SYM]))} <span class="cap">${esc(String(r[SYM]).split(':')[0])}</span>${hiRet(r[SYM])}</span>
+      return `<div class="res" data-sym="${esc(r[SYM])}"><span class="s">${esc(short(r[SYM]))} <span class="cap">${esc(String(r[SYM]).split(':')[0])}</span>${trendTag(r[SYM])}</span>
         <span class="m" title="${esc(r[CI['Company']])}">${esc(r[CI['Company']])} · ${esc(r[CI['Instrument Type']] || '')} · ${esc(r[CI['Sector']] || '')}${r[CI['Cap Class']] ? ' · ' + esc(r[CI['Cap Class']]) : ''}${r[CI['P/E']] != null ? ' · P/E ' + fmtN(r[CI['P/E']], 1) : ''}</span>
         ${v ? `<span class="badge a${v.a}">${esc(AN(v.a))} · ${esc(v.l)}</span>` : '<span></span>'}
         <button class="${here ? '' : 'primary'}" data-add>${here ? 'Move list' : v ? 'Move here' : 'Add'}</button></div>`;
@@ -1393,7 +1384,7 @@ function drawDetail() {
 
   dEl.innerHTML = `<div class="modal dm" role="dialog" aria-modal="true" aria-label="${esc(base)} details">
     <div class="mh"><div class="ttl">
-        <h2>${markBar(sym)}${esc(base)} <span class="cap">${esc(ex)}</span>${hiRet(sym)}${g('Cap Class') ? `<span class="cap ${esc(g('Cap Class'))}">${esc(g('Cap Class'))}</span>` : ''}${g('Nifty500') === 'Y' ? '<span class="cap">Nifty 500</span>' : ''}</h2>
+        <h2>${markBar(sym)}${esc(base)} <span class="cap">${esc(ex)}</span>${trendTag(sym)}${g('Cap Class') ? `<span class="cap ${esc(g('Cap Class'))}">${esc(g('Cap Class'))}</span>` : ''}${g('Nifty500') === 'Y' ? '<span class="cap">Nifty 500</span>' : ''}</h2>
         <div class="sub">${esc(g('Company'))}${String(g('Sector') || '').startsWith(type) ? '' : ' · ' + esc(type)}${g('Sector') ? ' · ' + esc(g('Sector')) : ''}${g('Industry') ? ' · ' + esc(g('Industry')) : ''}</div></div>
       <div class="nav"><button class="ghost" data-d="prev" ${idx <= 0 ? 'disabled' : ''} aria-label="Previous scrip" title="Previous (←)">‹</button>
         <button class="ghost" data-d="next" ${idx >= dCtx.list.length - 1 ? 'disabled' : ''} aria-label="Next scrip" title="Next (→)">›</button>
@@ -1522,7 +1513,7 @@ function drawBoard() {
       return `<div class="zone" data-a="${a}" data-l="${esc(l)}"><h4><span>${esc(l)}</span><span style="color:${tg && rows.length !== tg ? 'var(--warn)' : 'inherit'}">${rows.length}${tg ? ' / ' + tg : ''}</span></h4><div class="chips">${rows.map(r => {
         const hay = (short(r[SYM]) + ' ' + (r[CI['Company']] || '') + ' ' + (r[CI['Sector']] || '')).toLowerCase();
         const cls = t ? (hay.includes(t) ? 'hit' : 'dim') : '';
-        return `<span class="card-chip ${cls}" draggable="true" data-sym="${esc(r[SYM])}" title="${esc(r[CI['Company']])} — ${esc(r[CI['Sector']] || '')}${r[CI['Cap Class']] ? ' · ' + esc(r[CI['Cap Class']]) : ''}" tabindex="0"><span class="d ${esc(r[CI['Cap Class']] || '')}"></span><span class="s">${esc(short(r[SYM]))}</span>${hiRet(r[SYM])}<span class="m">${esc(String(r[CI['Sector']] || '').split(/[ &]/)[0])}</span></span>`;
+        return `<span class="card-chip ${cls}" draggable="true" data-sym="${esc(r[SYM])}" title="${esc(r[CI['Company']])} — ${esc(r[CI['Sector']] || '')}${r[CI['Cap Class']] ? ' · ' + esc(r[CI['Cap Class']]) : ''}" tabindex="0"><span class="d ${esc(r[CI['Cap Class']] || '')}"></span><span class="s">${esc(short(r[SYM]))}</span>${trendTag(r[SYM])}<span class="m">${esc(String(r[CI['Sector']] || '').split(/[ &]/)[0])}</span></span>`;
       }).join('') || '<span class="hint" style="margin:0">Drop scrips here</span>'}</div></div>`;
     }).join('')}</section>`).join('');
 }
@@ -1542,7 +1533,7 @@ function mountChanges() {
   view.innerHTML = `<div class="toolbar"><span class="hint" style="margin:0">Differences from the original lists that came with this file. Revert one row, or use State ▾ → Reset to undo everything.</span>
     <span class="grow"></span><span class="count">${ch.length} change${ch.length === 1 ? '' : 's'}</span></div>
     <div class="tablewrap"><table class="grid chg"><thead><tr class="h"><th class="nosort">Symbol</th><th class="nosort">Company</th><th class="nosort">Sector${ii('Sector')}</th><th class="nosort">Cap${ii('Cap Class')}</th><th class="nosort">Before</th><th class="nosort">Now</th><th class="nosort"></th></tr></thead>
-    <tbody>${ch.length ? ch.map(({s, b, a}) => { const r = BY.get(s) || []; return `<tr data-sym="${esc(s)}"><td class="sym">${esc(short(s))}${hiRet(s)}</td><td class="co">${esc(r[CI['Company']])}</td><td>${esc(r[CI['Sector']] || '')}</td><td>${r[CI['Cap Class']] ? `<span class="cap ${esc(r[CI['Cap Class']])}">${esc(r[CI['Cap Class']])}</span>` : ''}</td><td class="before">${lab(b)}</td><td>${lab(a)}</td><td class="act"><button data-rv>↺ Revert</button></td></tr>`; }).join('') : `<tr><td colspan="7"><div class="empty">No changes yet.</div></td></tr>`}</tbody></table></div>`;
+    <tbody>${ch.length ? ch.map(({s, b, a}) => { const r = BY.get(s) || []; return `<tr data-sym="${esc(s)}"><td class="sym">${esc(short(s))}${trendTag(s)}</td><td class="co">${esc(r[CI['Company']])}</td><td>${esc(r[CI['Sector']] || '')}</td><td>${r[CI['Cap Class']] ? `<span class="cap ${esc(r[CI['Cap Class']])}">${esc(r[CI['Cap Class']])}</span>` : ''}</td><td class="before">${lab(b)}</td><td>${lab(a)}</td><td class="act"><button data-rv>↺ Revert</button></td></tr>`; }).join('') : `<tr><td colspan="7"><div class="empty">No changes yet.</div></td></tr>`}</tbody></table></div>`;
   view.querySelector('tbody').addEventListener('click', e => { if (e.target.closest('button')) return; const tr = e.target.closest('tr[data-sym]'); if (tr) openDetail(tr.dataset.sym, ch.map(x => x.s)); });
   view.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => {
     const s = b.closest('tr').dataset.sym, o = D.assign0[s];
@@ -1577,7 +1568,7 @@ function btRow(r, T) {
     const v = r[k], m = BTM[k];
     if (k === 'Account') return `<td><span class="badge a${ACC_OF[v]}">${esc(v)}</span></td>`;
     if (k === 'Portfolio' || k === 'List' || k === 'Horizon') return `<td><span class="chip">${esc(v)}</span></td>`;
-    if (k === 'Symbol') return `<td class="sym" title="Click for stock details">${starBtn(v)}<span class="tk">${esc(short(v))}</span>${hiRet(v)}</td>`;
+    if (k === 'Symbol') return `<td class="sym" title="Click for stock details">${starBtn(v)}<span class="tk">${esc(short(v))}</span>${trendTag(v)}</td>`;
     if (k === 'Company' || k === 'Note') return `<td class="co" title="${esc(v || '')}">${k === 'Note' && v ? '⚑ ' : ''}${esc(v || '')}</td>`;
     if (k === 'Cap Class') return `<td>${v ? `<span class="cap ${esc(v)}">${esc(v)}</span>` : ''}</td>`;
     if (m && m.t === 'num') return `<td class="num ${/P&L|Return|CAGR|Contribution/.test(k) ? pn(v) : ''}">${fmtN(v, m.d)}</td>`;
@@ -1875,7 +1866,7 @@ function pkRow(r, T) {
   const isIdx = r._index;
   return `<tr ${isIdx ? '' : `data-sym="${esc(r.Symbol)}"`} class="${isIdx ? 'idx gsep' : rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = pkVal(r, k), m = PKM[k];
-    if (k === 'Symbol') return isIdx ? `<td class="sym">${esc(r.Symbol)} <small style="color:var(--muted);font-weight:400">· ${esc(r.Group)} index</small></td>` : `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(r.Symbol)}<span class="tk">${esc(short(r.Symbol))}</span>${hiRet(r.Symbol)}</td>`;
+    if (k === 'Symbol') return isIdx ? `<td class="sym">${esc(r.Symbol)} <small style="color:var(--muted);font-weight:400">· ${esc(r.Group)} index</small></td>` : `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(r.Symbol)}<span class="tk">${esc(short(r.Symbol))}</span>${trendTag(r.Symbol)}</td>`;
     if (k === 'Company') return `<td class="co" title="${esc(v || '')}">${esc(v || '')}</td>`;
     if (k === 'Group') return `<td><span class="chip">${esc(v)}</span></td>`;
     if (k === 'Price trend') return `<td>${isIdx ? '' : trendChip(v)}</td>`;
@@ -1969,7 +1960,7 @@ const T10_DEF = ['Rank', 'Symbol', 'Score v3', '1Y %', '2Y %', '3Y %', '4Y %', '
 function t10Row(r, T) {
   return `<tr data-sym="${esc(r.Symbol)}" class="${rowMarkCls(r.Symbol).trim()}">` + T.cols.map(k => {
     const v = r[k], m = T10M[k];
-    if (k === 'Symbol') { const n = r._n ?? r['Sector lists'], lists = r._lists ?? r['In sector lists']; return `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span>${hiRet(v)}${n > 1 ? `<span class="cnt" title="In ${n} sector lists: ${esc(lists || '')}">×${n}</span>` : ''}</td>`; }
+    if (k === 'Symbol') { const n = r._n ?? r['Sector lists'], lists = r._lists ?? r['In sector lists']; return `<td class="sym" title="${esc(r.Company || '')} — click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span>${trendTag(v)}${n > 1 ? `<span class="cnt" title="In ${n} sector lists: ${esc(lists || '')}">×${n}</span>` : ''}</td>`; }
     if (k === 'Cap Class') return `<td>${v ? `<span class="cap ${esc(v)}">${esc(v)}</span>` : ''}</td>`;
     if (k === 'In your lists') { const a = v ? ACC_OF[String(v).split(' · ')[0]] : null; return `<td>${v ? `<span class="badge a${a}">${esc(v)}</span>` : ''}</td>`; }
     if (k === 'Score v3') return `<td class="num heat" style="${tint(v == null ? null : (v - 60) / 1.5)}"><b>${v == null ? '–' : fmtN(v, 1)}</b></td>`;
@@ -2082,17 +2073,15 @@ const STAR_PICK = [VIRT._mark, VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIR
 const ALL_PICK = [VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIRT['v3:' + c]), ...COLS];
 let stView = 'star';
 try { stView = sessionStorage.getItem(STORE + '-stview') || 'star'; } catch (e) {}
-let stHi = 0;                                           // 🚀 profit filter on the Shortlist: 0 = all, -1 = no 🚀, n = tier n or deeper green
-try { stHi = +(sessionStorage.getItem(STORE + '-sthi') || 0) || 0; } catch (e) {}
-const hiPass = (sym, f) => f === 0 || (f < 0 ? tierOf(sym) === 0 : tierOf(sym) >= f);
-const hiSegs = syms => [[0, 'All', syms.length],
-  ...HI_TIERS.map((t, i) => [i + 1, `<span class="hr t${i + 1}">🚀 &gt;${t.toLocaleString('en-IN')}%</span>`, syms.filter(x => tierOf(x) > i).length]),
-  [-1, 'No 🚀', syms.filter(x => !tierOf(x)).length]];
+let stTr = '';                                          // trend filter on the Shortlist: '' = all, a trend name, or '-' = no trend data
+try { stTr = sessionStorage.getItem(STORE + '-sttr') || ''; } catch (e) {}
+const trPass = (sym, f) => !f || (f === '-' ? !trendOf(sym) : trendOf(sym) === f);
+const trSegs = syms => [['', 'All', syms.length], ...Object.keys(TREND).map(t => [t, `<span class="trd ${TREND[t][0]}">${TREND[t][1]} ${t}</span>`, syms.filter(x => trendOf(x) === t).length]), ['-', 'No data', syms.filter(x => !trendOf(x)).length]];
 function mountShortlist() {
   if (stView !== 'all' && !VIEWS[stView]) stView = 'star';
   const marked = m => Object.keys(S[VIEWS[m].s] || {});
   const baseRows = () => (stView === 'all' ? MK.flatMap(marked) : marked(stView)).map(s0 => BY.get(s0)).filter(Boolean);
-  const rowsFn = () => baseRows().filter(r => hiPass(r[SYM], stHi)).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
+  const rowsFn = () => baseRows().filter(r => trPass(r[SYM], stTr)).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
   const noun = stView === 'all' ? 'marked stocks' : VIEWS[stView].n.toLowerCase() + ' stocks';
   if (V3_EXTRA.length && S.vis.star && !S.vis.star.some(k => String(k).startsWith('v3:'))) delete S.vis.star;   // column set saved before the v3 detail columns existed
   const T = tables.star || Table('star', rowsFn, DEF_STAR, {freeze: 'Symbol', noun: 'marked stocks', empty: '', pick: STAR_PICK,
@@ -2108,10 +2097,10 @@ function mountShortlist() {
     <div class="tiles">${MK.map(m => tile(`<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${MARKS[m].n}`, markCount(m), {star: 'your picks', doubt: 'need a closer look', rej: 'decided against (dimmed in every tab)'}[m])).join('')}${tile('★ not yet in an account', free, 'tick them below → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from the ★ shortlist')).join('')}</div>
     <div class="panel"><h3>${stView === 'all' ? 'All marked stocks' : `${VIEWS[stView].i} ${VIEWS[stView].n}`} — sorted by v3 score${ii('Score v3')}</h3>
       <div class="mseg" data-stv>${segs.map(([id, l, n]) => `<button aria-pressed="${id === stView}" data-v="${id}">${l}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="mseg hiseg" data-sthi><span class="lab" title="Best price return over 1Y-5Y - the same 🚀 badge shown beside every ticker">Profit 🚀</span>${hiSegs(baseRows().map(r => r[SYM])).map(([id, l, n]) => `<button aria-pressed="${id === stHi}" data-h="${id}">${l}<span class="n">${n}</span></button>`).join('')}</div>
+      <div class="mseg trseg" data-sttr><span class="lab" title="${esc(GL['Price trend'].d)}">Trend</span>${trSegs(baseRows().map(r => r[SYM])).map(([id, l, n]) => `<button aria-pressed="${id === stTr}" data-t="${esc(id)}">${l}<span class="n">${n}</span></button>`).join('')}</div>
       <div class="sub">Mark any stock in any tab with the <b>★ Shortlist</b> · <b>? Doubtful</b> · <b>✗ Reject</b> buttons beside its ticker (or in its popup); click again to clear. Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Angel, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
   T.mount(view.querySelector('[data-stt]'));
-  view.querySelector('[data-sthi]').onclick = e => { const b = e.target.closest('[data-h]'); if (!b || +b.dataset.h === stHi) return; stHi = +b.dataset.h; try { sessionStorage.setItem(STORE + '-sthi', stHi); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
+  view.querySelector('[data-sttr]').onclick = e => { const b = e.target.closest('[data-t]'); if (!b || b.dataset.t === stTr) return; stTr = b.dataset.t; try { sessionStorage.setItem(STORE + '-sttr', stTr); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
   view.querySelector('[data-stv]').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === stView) return; stView = b.dataset.v; try { sessionStorage.setItem(STORE + '-stview', stView); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
   const sel = () => [...T.sel].filter(s0 => markOf(s0));
   T.el.querySelector('[data-r=cmpsel]').onclick = () => { const pick = (sel().length ? sel() : rows.map(r => r[SYM])).slice(0, 10); if (!pick.length) return; S.cmp = pick; save(); tab = 'cmp'; try { sessionStorage.setItem(STORE + '-tab', tab); } catch (e) {} renderTabs(); mountView(); };
@@ -2187,7 +2176,7 @@ function cmpGet(sym, key, src) {
 function mountCompare() {
   if (!S.cmp || !S.cmp.length) S.cmp = ['NSE:ICICIBANK', 'NSE:HDFCBANK', 'NSE:SBIN'].filter(s0 => BY.has(s0));
   const syms = S.cmp.filter(s0 => BY.has(s0));
-  const head = syms.map(s0 => { const sc = cmpGet(s0, 'Score v3', 'v'); return `<th>${starBtn(s0)}<span class="tk" style="color:var(--accent);cursor:pointer" data-open="${esc(s0)}">${esc(short(s0))}</span>${hiRet(s0)}<span class="sub2">${esc(String(cmpGet(s0, 'Company', 'u') || '').slice(0, 34))}</span></th>`; }).join('');
+  const head = syms.map(s0 => { const sc = cmpGet(s0, 'Score v3', 'v'); return `<th>${starBtn(s0)}<span class="tk" style="color:var(--accent);cursor:pointer" data-open="${esc(s0)}">${esc(short(s0))}</span>${trendTag(s0)}<span class="sub2">${esc(String(cmpGet(s0, 'Company', 'u') || '').slice(0, 34))}</span></th>`; }).join('');
   const wins = Object.fromEntries(syms.map(s0 => [s0, 0]));
   let rowsHtml = '', grp = '';
   for (const spec of CMP_ROWS) {
@@ -2219,7 +2208,7 @@ function mountCompare() {
     }).join('') + '</tr>';
   }
   const winRow = `<tr><td><b>Best-in-row count</b> ★</td>${syms.map(s0 => `<td><b>${wins[s0]}</b></td>`).join('')}</tr>`;
-  const chips = syms.map(s0 => `<span class="chipx">${esc(short(s0))}${hiRet(s0)}<button data-rm="${esc(s0)}" aria-label="Remove ${esc(short(s0))}" title="Remove">×</button></span>`).join('');
+  const chips = syms.map(s0 => `<span class="chipx">${esc(short(s0))}${trendTag(s0)}<button data-rm="${esc(s0)}" aria-label="Remove ${esc(short(s0))}" title="Remove">×</button></span>`).join('');
   view.innerHTML = `
     <div class="cmp-pick"><b>Compare</b>${chips}
       ${syms.length < 10 ? `<span class="srch"><input type="search" id="cmp-q" placeholder="Add a stock (symbol or company)…" value="${esc(cmpQ)}" aria-label="Add a stock to compare" autocomplete="off"><div class="drop" data-drop hidden></div></span>` : '<span class="count">Maximum 10 stocks - remove one to add another</span>'}
@@ -2257,7 +2246,7 @@ function mountCompare() {
       const hits = [];
       for (const r of ALL) { const sy = short(r[SYM]).toLowerCase(), co = String(r[CI['Company']] || '').toLowerCase(); const sc = sy === t0 ? 0 : sy.startsWith(t0) ? 1 : co.startsWith(t0) ? 2 : sy.includes(t0) || co.includes(t0) ? 3 : -1; if (sc >= 0 && !syms.includes(r[SYM])) hits.push([sc, -(r[CI['Market Cap (Cr)']] || 0), r]); }
       hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      drop.innerHTML = hits.slice(0, 10).map(([, , r]) => `<button data-add="${esc(r[SYM])}"><span><b>${esc(short(r[SYM]))}</b>${hiRet(r[SYM])} ${esc(r[CI['Company']] || '')}</span><small>${esc(r[CI['Instrument Type']] || '')}${V3.has(r[SYM]) ? ' · v3' : ''}</small></button>`).join('') || '<div class="hint" style="padding:8px 10px">No match</div>';
+      drop.innerHTML = hits.slice(0, 10).map(([, , r]) => `<button data-add="${esc(r[SYM])}"><span><b>${esc(short(r[SYM]))}</b>${trendTag(r[SYM])} ${esc(r[CI['Company']] || '')}</span><small>${esc(r[CI['Instrument Type']] || '')}${V3.has(r[SYM]) ? ' · v3' : ''}</small></button>`).join('') || '<div class="hint" style="padding:8px 10px">No match</div>';
       drop.hidden = false;
       drop.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { S.cmp = [...S.cmp.filter(x => x !== '_none'), b.dataset.add].slice(-10); cmpQ = ''; save(); mountCompare(); setTimeout(() => { const n = view.querySelector('#cmp-q'); if (n) n.focus(); }); });
     };
@@ -2466,22 +2455,20 @@ if (TEST) {
       stView = 'think'; tab = 'star'; mountView(); ok(tables.star.filtered().length === 1 && tables.star.filtered()[0][SYM] === ts, 'think: Shortlist → 🤔 Thinking lists tagged stocks');
       tab = 'all'; mountView(); view.querySelector(`[data-think="${CSS.escape(ts)}"]`).click(); ok(!isThink(ts), 'think: clicking 🤔 again clears it');
       setMark(ts, m0); S.thinks = keepT; stView = 'star'; }
-    { const base = ALL.map(r => r[SYM]).filter(x => tierOf(x)).slice(0, 3).concat(ALL.map(r => r[SYM]).filter(x => !tierOf(x)).slice(0, 2)); S.stars = Object.fromEntries(base.map(x => [x, 1])); S.doubts = {}; S.rejects = {};
-      stView = 'star'; stHi = 1; tab = 'star'; mountView(); const got = tables.star.filtered().map(r => r[SYM]);
-      ok(got.length === 3 && got.every(x => tierOf(x) >= 1) && view.querySelector('[data-sthi] [data-h="1"]').getAttribute('aria-pressed') === 'true' && view.querySelector('[data-sthi] [data-h="3"] .hr.t3'), 'shortlist: 🚀 profit filter keeps only stocks at that green tier or above');
-      view.querySelector('[data-sthi] [data-h="-1"]').click(); const g2 = tables.star.filtered().map(r => r[SYM]);
-      ok(stHi === -1 && g2.length === 2 && g2.every(x => !tierOf(x)), 'shortlist: "No 🚀" shows stocks without the badge');
-      view.querySelector('[data-sthi] [data-h="0"]').click(); ok(tables.star.filtered().length === 5, 'shortlist: profit filter "All" restores the list'); stHi = 0; }
+    { const pick = t => ALL.map(r => r[SYM]).filter(x => trendOf(x) === t).slice(0, 2), base = [...pick('Declining'), ...pick('Accelerating'), ...ALL.map(r => r[SYM]).filter(x => !trendOf(x)).slice(0, 1)];
+      S.stars = Object.fromEntries(base.map(x => [x, 1])); S.doubts = {}; S.rejects = {};
+      stView = 'star'; stTr = 'Declining'; tab = 'star'; mountView(); const got = tables.star.filtered().map(r => r[SYM]);
+      ok(got.length === 2 && got.every(x => trendOf(x) === 'Declining') && view.querySelector('[data-sttr] [data-t="Declining"]').getAttribute('aria-pressed') === 'true' && view.querySelector('[data-sttr] .trd.dec'), 'shortlist: Trend filter keeps only that trend');
+      view.querySelector('[data-sttr] [data-t="-"]').click(); ok(stTr === '-' && tables.star.filtered().length === 1, 'shortlist: Trend "No data" shows stocks without a trend');
+      view.querySelector('[data-sttr] [data-t=""]').click(); ok(tables.star.filtered().length === 5 && !view.querySelector('[data-sthi]'), 'shortlist: Trend "All" restores the list (Profit 🚀 filter removed)'); stTr = ''; }
     [S.stars, S.doubts, S.rejects] = keepS; stView = keepV; tables.star.sel.clear(); tab = 'all'; mountView();
   }
   {
-    const syms = ALL.map(r => r[SYM]), cnt = [1, 2, 3, 4, 5].map(n => syms.filter(x => tierOf(x) === n).length);
-    const tierOk = syms.every(x => { const b = bestRet(x), n = tierOf(x), h = hiRet(x); return n === (b ? HI_TIERS.filter(t => b.v > t).length : 0) && (!n || (h.includes(`+${Math.round(b.v).toLocaleString('en-IN')}%`) && h.includes(`>${b.y}Y<`) && h.includes(`t${n}`))) && (n || !h); });
-    const hi = syms.filter(x => tierOf(x) >= 2).sort((a, b) => bestRet(b).v - bestRet(a).v);
-    ok(tierOk && cnt[0] > cnt[1] && cnt[4] >= 1, `high-profit badge: 🚀 + best 1-5Y % above +100% (tiers ${cnt.join(' / ')})`);
-    openDetail(hi[0]); const hb = dEl.querySelector('h2 .hr'); const has = !!hb && hb.title.includes('5Y:'); closeDetail();
-    tab = 'all'; mountView(); const cell = view.querySelector('[data-tbl="all"] td.sym .hr');
-    ok(has && cell && /^🚀 \+[\d,]+%\dY$/u.test(cell.textContent), 'high-profit badge: shown after the ticker in tables and in the stock popup');
+    const syms = ALL.map(r => r[SYM]), withT = syms.filter(trendOf), ok1 = syms.every(x => { const h = trendTag(x), t = trendOf(x); return t ? h.includes(`${TREND[t][1]} ${t}<`) && h.includes(`trd tg ${TREND[t][0]}`) : !h; });
+    ok(ok1 && withT.length > 300 && !document.querySelector('.hr'), `trend tag: ${withT.length} stocks tagged ⇈ / → / ↘ / ⇊, no 🚀 badge anywhere`);
+    openDetail(withT[0]); const hb = dEl.querySelector('h2 .trd.tg'); const has = !!hb && hb.title.includes('Year by year'); closeDetail();
+    tab = 'all'; mountView(); const cell = view.querySelector('[data-tbl="all"] td.sym .trd.tg');
+    ok(has && cell && Object.keys(TREND).some(t => cell.textContent.endsWith(t)), 'trend tag: shown after the ticker in tables and in the stock popup');
   }
   if (D.top10) {
     tab = 'all'; mountView(); const cols = tables.all.cols;
