@@ -7,9 +7,8 @@ the largest filtered-out names (flagged). Returns use Yahoo daily closes: 'Close
 other one-day moves beyond +/-35% are flagged as possible corporate actions (demerger, etc.) - not adjusted."""
 import datetime as dt, json, time
 import pandas as pd
-from common import OUT, SUGGESTED, START_EMPTY, run_resumable, load_json
+from common import OUT, END_DATE, SUGGESTED, START_EMPTY, run_resumable, load_json, reset_if_stale
 
-END_DATE = '2026-10-01'
 HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '4Y': 4, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
 is_break = lambda m: m <= -45 or m > 50     # ~-50% = unadjusted 1:1 bonus/split; > +50% = bad data. Smaller moves (e.g. PNB +46% recap rally) are kept.
 PSU_BANKS = ['SBIN', 'BANKBARODA', 'PNB', 'CANBK', 'UNIONBANK', 'INDIANB', 'BANKINDIA', 'IOB', 'CENTRALBK', 'UCOBANK', 'MAHABANK', 'PSB']
@@ -67,11 +66,12 @@ def fix_unadjusted(closes, splits):
     return closes, fixed
 
 
+reset_if_stale('raw_picks_hist.json')
 raw = load_json('raw_picks_hist.json')
 todo = [s for s in P.Sym if s not in raw]
 if todo:
     full = run_resumable('picks-history', hist, todo, 'raw_picks_hist_full.tmp.json', workers=2)
-    keep_windows = [(f'{y}-09-24', f'{y}-10-20') for y in range(1990, 2027)]
+    keep_windows = [(f'{y}-09-24', f'{y}-10-20') for y in range(1990, int(END_DATE[:4]) + 1)]
     for s in todo:
         h = full.get(s)
         if not h: raw[s] = None; continue

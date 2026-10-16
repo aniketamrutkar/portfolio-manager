@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .DS_Store
 pipeline/*.tmp.json
+
+# Claude Code session history: raw transcripts (may contain pasted secrets) and the session log stay local - this repo is public
+.claude/sessions/
+.claude/SESSION_LOG.md
+.claude/SESSION_LOG_ARCHIVE.md
+
+# NSE bhavcopy history (651 MB, re-downloadable)
+pipeline/bhav_hist/

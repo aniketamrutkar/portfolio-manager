@@ -1,12 +1,13 @@
 """1/2/3/4/5-year price returns for every Nifty 500 stock (helper used by step 17). -> raw_ret_hist.json (cache) + ../Returns_Nifty500.csv
 Each horizon starts on the first trading day on/after 1 October of 2025 / 2024 / 2023 / 2022 / 2021 and ends on the latest close on/before END_DATE,
-the same convention as the Sectors / Sector Picks / Backtest tabs. Yahoo split-adjusted closes; histories Yahoo adjusted only partly are
+the same convention as the Sectors / Sector Picks / Backtest tabs.
+Also: year-by-year returns ('YoY 21→22 %' … the last one ends on END_DATE) between those same October start dates, and 'Price trend':
+Declining = 1Y return < 0 · Slowing = 1Y at least 10 pts below both the 3Y and 5Y CAGR · Accelerating = 1Y at least 10 pts above both · else Steady. Yahoo split-adjusted closes; histories Yahoo adjusted only partly are
 corrected; any horizon spanning an unadjusted break (non-reverting one-day move <= -45% or > +50%: bonus/split, demerger, bad data) is blanked."""
 import datetime as dt, json, os, time
 import pandas as pd
-from common import OUT, run_resumable, load_json
+from common import OUT, END_DATE, run_resumable, load_json, reset_if_stale
 
-END_DATE = '2026-10-01'
 H = {'1Y': 2025, '2Y': 2024, '3Y': 2023, '4Y': 2022, '5Y': 2021}
 CACHE_V = 2                            # bump when H changes: cached entries keep only the closes around each horizon's start
 is_break = lambda m: m <= -45 or m > 50
@@ -35,7 +36,22 @@ def hist(sym):
     return sym, None
 
 
+YOY = [(y, y + 1) for y in sorted(H.values())]                       # consecutive October-to-October years; the last ends on END_DATE
+yoy_col = lambda y0, y1: f'YoY {y0 % 100:02d}→{y1 % 100:02d} %'
+TREND_GAP = 10                                                       # pts the 1Y return must be below / above both the 3Y and 5Y CAGR
+
+
+def trend(r1, c3, c5):
+    if r1 is None or pd.isna(r1): return None
+    cs = [c for c in (c3, c5) if c is not None and not pd.isna(c)]
+    if r1 < 0: return 'Declining'
+    if cs and r1 < min(cs) - TREND_GAP: return 'Slowing'
+    if cs and r1 > max(cs) + TREND_GAP: return 'Accelerating'
+    return 'Steady'
+
+
 def build(symbols):
+    reset_if_stale('raw_ret_hist.json')
     old = load_json('raw_ret_hist.json')
     if any(v and v.get('v') != CACHE_V for v in old.values()):   # cached before 2Y/4Y existed: re-fetch those symbols
         json.dump({k: v for k, v in old.items() if v and v.get('v') == CACHE_V}, open('raw_ret_hist.json', 'w'))
@@ -45,10 +61,11 @@ def build(symbols):
         h = raw.get(s) or {}
         c = h.get('close', {}); ds = sorted(c); z = max((d for d in ds if d <= END_DATE), default=None)
         rec = {'Symbol': 'NSE:' + s}
-        notes = []
+        notes, starts = [], {}
         for hz, y in H.items():
             a = next((d for d in ds if f'{y}-10-01' <= d <= f'{y}-10-15'), None)
             br = [j for j in h.get('jumps', []) if a and a < j[0] <= (z or '') and is_break(j[1])]
+            starts[y] = a                                            # start close of this October (before blanking: year-by-year checks its own window)
             if br: notes.append(f'{hz} blanked: unadjusted {br[0][1]:+d}% move on {br[0][0]}'); a = None
             if a and z:
                 t = c[z] / c[a]; n = (dt.date.fromisoformat(z) - dt.date.fromisoformat(a)).days / 365.25
@@ -56,6 +73,12 @@ def build(symbols):
             else:
                 rec[f'{hz} %'] = rec[f'{hz} CAGR %'] = None
                 if not br and h.get('first') and h['first'] > f'{y}-10-15': notes.append(f'{hz} n/a: listed/data from {h["first"]}')
+        starts[max(H.values()) + 1] = z                               # the last year ends on the data date
+        for y0, y1 in YOY:
+            a0, a1 = starts.get(y0), starts.get(y1)
+            bad = a0 and a1 and any(a0 < j[0] <= a1 and is_break(j[1]) for j in h.get('jumps', []))
+            rec[yoy_col(y0, y1)] = round((c[a1] / c[a0] - 1) * 100, 1) if a0 and a1 and not bad else None
+        rec['Price trend'] = trend(rec['1Y %'], rec['3Y CAGR %'], rec['5Y CAGR %'])
         rec['Returns note'] = '; '.join(notes)
         rows.append(rec)
     R = pd.DataFrame(rows)

@@ -33,7 +33,7 @@ d['Profit yrs'] = d['ProfitYears'].astype(str) + '/' + d['NIYears'].astype(str)
 # ------- hard filters (genuineness) -------
 d['Reject'] = ''
 def rej(mask, why): d.loc[mask & (d['Reject'] == ''), 'Reject'] = why
-rej(d['Price'].isna() | (d['Avg Volume'] < 100000), 'illiquid/no data')
+rej(d['Price'].isna() | (d['Avg Volume'] * d['Price'] < 1e7), 'illiquid/no data')   # avg daily turnover < Rs 1 Cr (shares x price, so high-priced stocks are not penalised)
 rej((d['NIYears'].fillna(0) >= 3) & (d['ProfitYears'].fillna(0) < d['NIYears'].fillna(0) - 1), 'losses in recent years')
 rej(d['P/E'].isna(), 'loss-making / no P/E')
 rej(d['P/E'] > 90, 'P/E > 90')

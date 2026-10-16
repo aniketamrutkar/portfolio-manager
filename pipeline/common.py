@@ -26,6 +26,19 @@ def load_json(path):
         return {}
 
 
+# Data date for every return / backtest calculation = the NSE bhavcopy day step 00 downloaded (the last trading day).
+END_DATE = load_json(os.path.join(HERE, 'inputs_meta.json')).get('nse_bhav_date', '2026-10-01')
+
+
+def reset_if_stale(path):
+    """History caches hold closes up to the END_DATE they were fetched for; when END_DATE moves, drop the cache so it re-fetches."""
+    tags = load_json('cache_end.json')
+    if tags.get(path) != END_DATE:
+        if os.path.exists(path):
+            os.remove(path); print(f'{path}: fetched for {tags.get(path) or "an older date"}, re-fetching to {END_DATE}', flush=True)
+        tags[path] = END_DATE; json.dump(tags, open('cache_end.json', 'w'), indent=1)
+
+
 def yahoo_alive():
     import yfinance as yf
     try:

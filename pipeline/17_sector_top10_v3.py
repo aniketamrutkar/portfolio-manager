@@ -7,7 +7,8 @@ Method (quality-at-a-reasonable-price, the way a long-only fund manager ranks wi
   * each parameter -> 0..1 from the cheat sheet's green / yellow / red zones (piecewise-linear between zone edges);
     "compare within the sector" items (margins, P/B for non-financials) blend absolute zones with the stock's sector percentile
   * pillars (v3.1): Quality 24 · Growth 17 · Valuation 16 · Safety 14 · Shareholder & income 6 · Returns & trend 23  (= 100)
-    Returns: 1Y return, 3Y CAGR, 5Y CAGR, 3Y CAGR vs Nifty 500, price vs 200-DMA, distance from 52W high, liquidity
+    Returns: 1Y return 4, 3Y CAGR 6, 5Y CAGR 4, consistency 2 (v3.2: up years of the last 5 Oct-to-Oct years, minus a penalty if any
+    single year fell more than 30%), 3Y CAGR vs Nifty 500 2, price vs 200-DMA 2, distance from 52W high 1.5, liquidity 1.5
   * missing data: that parameter drops out and its pillar is re-weighted (never counted as zero)
   * financials (banks, NBFCs, insurers, AMCs): debt/equity, interest cover, EV/EBITDA, FCF and operating margin are not used; P/B uses bank zones
   * red-flag caps: loss-making 35 · repeated losses 45 · D/E > 150 or interest cover < 2 (non-financials) 45 ·
@@ -35,6 +36,17 @@ a['Long CAGR %'] = [yrs5(r5) if pd.notna(r5) else yrs3(r3) for r5, r3 in zip(a['
 import returns_135                                     # 1/2/3/4/5-year price returns on the app-wide dates (cached in raw_ret_hist.json)
 RET = returns_135.build(sorted(a.Sym.unique()))
 a = a.merge(RET, on='Symbol', how='left')
+YOY = [c for c in RET.columns if c.startswith('YoY ')]
+_yy = a[YOY]
+a['Up years'], a['Years counted'], a['Worst year %'] = _yy.gt(0).sum(axis=1).where(_yy.notna().sum(axis=1) > 0), _yy.notna().sum(axis=1), _yy.min(axis=1)
+
+
+def consistency(r):
+    """v3.2: share of the last 5 Oct-to-Oct years that were positive (needs 3+ years); -0.25 if any single year fell more than 30%"""
+    n = r['Years counted']
+    if not n or n < 3: return np.nan
+    s = lin(r['Up years'] / n, [(0, 0), (.4, .25), (.6, .5), (.8, .8), (1, 1)])
+    return max(0.0, s - (.25 if r['Worst year %'] < -30 else 0))
 N500_3Y = 8.2                                          # Nifty 500 3-yr CAGR over the same window (Sector_Returns.csv), for relative strength
 try:
     _sr = pd.read_csv(f'{OUT}/Sector_Returns.csv'); N500_3Y = float(_sr.loc[_sr.Index == 'Nifty 500', '3Y CAGR %'].iloc[0])
@@ -90,9 +102,10 @@ par('Shareholder', 'Payout ratio', 2, lambda r, i: lin(r['Payout Ratio'], [(0, .
 par('Shareholder', 'Promoter holding', 2, lambda r, i: np.nan if pd.notna(r['Promoter %']) and r['Promoter %'] < 1 else lin(r['Promoter %'], [(15, 0), (25, .2), (30, .45), (50, .95), (60, 1), (75, 1), (90, .75)]), 'Promoter %', '%')
 par('Shareholder', 'Promoter change 1y', 1, lambda r, i: np.nan if pd.notna(r['Promoter %']) and r['Promoter %'] < 1 else lin(r['Promoter chg 1y (pp)'], [(-5, 0), (-3, .15), (-1, .6), (0, .8), (1, 1)]), 'Promoter chg 1y (pp)', ' pts')
 # TREND & LIQUIDITY 7
-par('Returns', '1Y return', 5, lambda r, i: lin(r['1Y %'], [(-35, 0), (-15, .1), (0, .35), (10, .6), (20, .85), (35, 1)]), '1Y %', '%')
+par('Returns', '1Y return', 4, lambda r, i: lin(r['1Y %'], [(-35, 0), (-15, .1), (0, .35), (10, .6), (20, .85), (35, 1)]), '1Y %', '%')
 par('Returns', '3Y CAGR', 6, lambda r, i: lin(r['3Y CAGR %'], [(-10, 0), (0, .15), (8, .4), (12, .6), (15, .8), (25, 1)]), '3Y CAGR %', '%')
-par('Returns', '5Y CAGR', 5, lambda r, i: lin(r['5Y CAGR %'], [(-10, 0), (0, .15), (8, .4), (12, .6), (15, .8), (25, 1)]), '5Y CAGR %', '%')
+par('Returns', '5Y CAGR', 4, lambda r, i: lin(r['5Y CAGR %'], [(-10, 0), (0, .15), (8, .4), (12, .6), (15, .8), (25, 1)]), '5Y CAGR %', '%')
+par('Returns', 'Consistency', 2, lambda r, i: consistency(r), 'Up years', '')
 par('Returns', 'Beat Nifty 500 (3Y)', 2, lambda r, i: lin(r['3Y CAGR %'] - N500_3Y, [(-10, 0), (0, .5), (5, .8), (10, 1)]) if pd.notna(r['3Y CAGR %']) else np.nan, '3Y CAGR %', '%')
 par('Returns', 'Price vs 200-DMA', 2, lambda r, i: lin(r['Price vs 200DMA %'], [(-25, 0), (-15, .15), (-10, .35), (0, .65), (10, 1), (20, 1), (30, .6), (50, .2)]), 'Price vs 200DMA %', '%')
 par('Returns', '% below 52W high', 1.5, lambda r, i: np.nan, '% Below 52W High', '%')     # filled after Quality (quality-aware)
@@ -141,6 +154,7 @@ for i, r in a.iterrows():
         v = r[col]
         if pd.isna(v): return n
         if n == 'Forward vs trailing P/E': return f"forward P/E {r['Forward P/E']:.1f} vs P/E {r['P/E']:.1f}"
+        if n == 'Consistency': return f"up in {v:.0f} of the last {r['Years counted']:.0f} years (worst {r['Worst year %']:+.0f}%)"
         v = f'{v:,.0f}' if col == 'Market Cap (Cr)' else (f'{v:.2f}' if unit in ('', '×') and abs(v) < 10 else f'{v:.1f}')
         return f'{n} {v}{unit}'
     contrib = [(n, w * pts[n], w * (1 - pts[n])) for _, n, w, *_ in P if not np.isnan(pts[n])]

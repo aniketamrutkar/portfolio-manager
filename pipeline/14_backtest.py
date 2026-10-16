@@ -10,9 +10,10 @@ Outputs (repo root): Backtest_Summary.csv (horizon x portfolio), Backtest_Holdin
 Backtest_Daily.csv (daily wealth per portfolio + benchmarks indexed to 100, per horizon). History cache: raw_hist5.json (resumable)."""
 import datetime as dt, math, time
 import pandas as pd
-from common import OUT, ACCOUNTS, ACCOUNT_ID, SUGGESTED, run_resumable
+from common import OUT, ACCOUNTS, ACCOUNT_ID, SUGGESTED, run_resumable, reset_if_stale
+from common import END_DATE as DATA_END
 
-END_DATE, PER_HOLDING, HIST_FROM = '2026-10-03', 50_000, '2021-09-01'
+END_DATE, PER_HOLDING, HIST_FROM = DATA_END, 50_000, '2021-09-01'               # DATA_END = last trading day (step 00)
 HORIZONS = {'1Y': 2025, '2Y': 2024, '3Y': 2023, '4Y': 2022, '5Y': 2021}          # label -> start year (1 Oct)
 BENCH = {'^NSEI': 'Nifty 50', '^CRSLDX': 'Nifty 500'}
 # ETFs whose Yahoo history starts long after listing: fill the gap with an ETF tracking the same index (scaled to join smoothly)
@@ -61,6 +62,7 @@ hold = pd.concat([
     pd.DataFrame({'Account': et['Account'], 'Portfolio': 'ETF/SGB', 'List': et['Slot'], 'Symbol': et['Symbol'],
                   'Company': et['Name'], 'Sector': et['Underlying'], 'Cap Class': ''})], ignore_index=True)
 hold['Sym'] = hold['Symbol'].str.replace('NSE:', '', regex=False)
+reset_if_stale('raw_hist5.json')
 H = run_resumable('history-5y', hist, hold['Sym'].tolist() + list(BENCH), 'raw_hist5.json', workers=2)
 FIX, FIXNOTE = {}, {}
 for s in hold['Sym']:

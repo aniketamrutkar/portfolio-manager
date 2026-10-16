@@ -6,9 +6,8 @@ day on/after 1 October of the start year and ends on the latest close on/before 
 Index list = NSE /api/allIndices (cached in nse_all_indices.json). History cache: raw_sector2.json (resumable)."""
 import datetime as dt, json, os, re, time, urllib.parse as up
 import pandas as pd, requests
-from common import OUT, UA, load_json
+from common import OUT, UA, END_DATE, load_json
 
-END_DATE = '2026-10-01'
 HORIZONS = {'1Y': 1, '2Y': 2, '3Y': 3, '4Y': 4, '5Y': 5, '10Y': 10, '15Y': 15, '20Y': 20, '25Y': 25, '30Y': 30}
 CATS = {'SECTORAL INDICES': 'Sector', 'THEMATIC INDICES': 'Theme', 'BROAD MARKET INDICES': 'Broad market', 'STRATEGY INDICES': 'Strategy'}
 EXTRA = {'NIFTY 50': 'Broad market', 'NIFTY NEXT 50': 'Broad market', 'NIFTY BANK': 'Sector', 'NIFTY FINANCIAL SERVICES': 'Sector', 'NIFTY MIDCAP SELECT': 'Broad market'}
@@ -66,7 +65,7 @@ for n, name in enumerate(UNI):
         got = window(name, a, b)
         if got is None: return False
         c['closes'].update(got); c['done'].append(tag); return True
-    get('end', end - dt.timedelta(days=12), end)
+    get('end ' + END_DATE, end - dt.timedelta(days=12), end)     # tagged by date: a new END_DATE re-fetches the latest closes
     last_ok, miss = None, None
     for hz, d0 in starts.items():                        # shortest -> longest; stop at the first horizon with no data
         get(hz, d0, d0 + dt.timedelta(days=14))

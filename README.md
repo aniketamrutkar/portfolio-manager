@@ -44,7 +44,7 @@ open Portfolio_Manager.html  # or double-click it; on Windows: start Portfolio_M
 | `Sector_Picks.csv` | 40 | Top 10 screened stocks in Metals & Mining, Pharma, Healthcare services and PSU Banks, ranked by the portfolio screen, with every fundamental and score. Gives returns over 1–30 years (price-only and with dividends reinvested), data start, and data notes. Read-only with respect to the account lists. |
 | `Score_v3_Nifty500.csv` / `Sector_Top10_v3.csv` | 497 / 224 | **v3 fund-manager score** built from all 28 cheat-sheet parameters (zone-graded, sector-aware, with red-flag caps), and the top 10 of each of NSE's 23 sectoral indices. Each stock gets its pillar points, strengths, weaknesses, red flags and a "why this rank" note. Independent of the account lists and the step-12 score. |
 | `Nifty100_v3.csv` | 100 | Every Nifty 100 member (NSE's official list, `pipeline/nifty100.csv`) ranked by the same v3 score, with the same columns and reasons as Sector Top 10, plus the sector top-10 lists it appears in. |
-| `Returns_Nifty500.csv` | 497 | 1/3/5-year price returns and CAGR for every Nifty 500 stock, on the same dates as the other tabs. Used by step 17 and fed into every HTML table. |
+| `Returns_Nifty500.csv` | 497 | 1/2/3/4/5-year price returns and CAGR for every Nifty 500 stock, on the same dates as the other tabs, plus five year-by-year returns (`YoY 21→22 %` … the last ending on the data date) and `Price trend`: Declining = 1Y below 0, Slowing = 1Y at least 10 pts below both the 3Y and 5Y CAGR, Accelerating = 10+ pts above both, else Steady. Used by step 17 and fed into every HTML table. |
 | `Ratio_Cheat_Sheet.html` / `.pdf` | – | Hand-written one-page reference for 28 fundamental ratios: meaning, which direction is better, good/okay/check zones and examples. The PDF prints on one A4 landscape page. Step 18 also embeds it as the **Ratio Cheat Sheet** tab, isolated in a shadow root; edit the .html file and rebuild to update both. |
 
 Main universe columns: `Symbol` (`NSE:XXX` or `BSE:XXX`), `Company`, `Instrument Type`, `Exchange` (`NSE`, `NSE+BSE`, `BSE`), `BSE Code`, `ISIN`, `Series`, `Sector`, `Industry`, `Cap Class`, `Market Cap (Cr)`, `Price`, `P/E`, `P/B`, `52W High/Low`, `% Below 52W High`, `Dividend/Share (annual)`, `Dividend Yield %`, `ROE %`, `Debt/Equity`, `Return 1y/3y/5y %`, `Volatility %`, `Max Drawdown 3y %`, `Avg Volume`, `Turnover Last Day (Lakh)` and `Nifty500` (Y/blank). Money is in ₹ and market cap is in ₹ crore.
@@ -115,7 +115,7 @@ All fetch steps are **resumable**. Re-running one fetches only symbols that are 
 **Sector** is NSE's macro sector from the Nifty 500 list (about 21 sectors). Elsewhere it is Yahoo's sector mapped to similar names. ETFs show `ETF · Equity`, `ETF · Commodity`, `ETF · Debt` and so on.
 
 **Screen (step 12, Nifty 500 only).** A stock is rejected (`Filtered Out Because`) if any of these hold:
-- illiquid or no data (average volume below 100k)
+- illiquid or no data (average daily turnover below ₹1 Cr = average volume × price)
 - losses in more than one of the last 3–4 years
 - no P/E (loss-making)
 - P/E above 90
