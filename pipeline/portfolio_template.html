@@ -68,20 +68,22 @@ main{padding:16px 20px 40px;max-width:100%}
 
 .tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto;max-height:calc(100vh - 250px);min-height:200px}
 table.grid{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px}
-.grid th,.grid td{padding:0 10px;height:var(--row-h);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.grid th,.grid td{padding:0 7px;height:var(--row-h);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
 .grid thead th{position:sticky;background:var(--surface-2);z-index:2;font-weight:600;font-size:12.5px}
 .grid thead tr.h th{top:0;cursor:pointer;user-select:none}
 .grid thead tr.h th.nosort{cursor:default}
-.grid thead tr.f th{top:var(--row-h);padding:4px 6px;border-bottom:1px solid var(--border-strong)}
-.grid thead tr.f input,.grid thead tr.f select{width:100%;min-width:70px;padding:3px 6px;font-size:12px;font-weight:400}
-.grid th .arrow{color:var(--faint);margin-left:4px;font-size:11px}
+.grid thead tr.f th{top:var(--row-h);padding:4px 4px;border-bottom:1px solid var(--border-strong)}
+.grid thead tr.f input,.grid thead tr.f select{width:0;min-width:100%;padding:3px 5px;font-size:12px;font-weight:400}   /* width:0 = the header text, not the filter box, sets the column width */
+.grid th .arrow{color:var(--faint);margin-left:3px;font-size:11px}
 .grid th.sorted .arrow{color:var(--accent)}
 .grid td.num,.grid th.num{text-align:right;font-variant-numeric:tabular-nums}
 .grid tbody tr:hover td{background:var(--surface-2)}
 .grid tbody tr.sel td{background:var(--accent-soft)}
 .grid td.c,.grid th.c{width:34px;text-align:center;padding:0 6px}
 .grid td.sym{font-weight:600}
-.grid td.co{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.grid td.co{max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.grid td.sec{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.grid td.sym .trd.tg .w{display:none} .grid td.sym .trd.tg{padding:0 5px;margin-left:5px}   /* icon only beside the ticker in tables; the word shows on hover, in the popup and in the Price trend column */
 .grid td.why{white-space:normal;min-width:220px;max-width:340px;font-size:12px;line-height:1.35}
 .grid td.pos{color:var(--pos)} .grid td.neg{color:var(--neg)}
 .grid td.act{text-align:right}
@@ -464,6 +466,12 @@ const VIRT = {
 };
 const meta = k => VIRT[k] || COLS[CI[k]];
 const label = k => (VIRT[k] ? VIRT[k].label : k);
+const SHORT_H = {'Market Cap (Cr)': 'Mcap ₹Cr', 'Promoter chg 1y (pp)': 'Prom. Δ1y', '% Below 52W High': '↓52W hi %', 'Price vs 200DMA %': 'vs 200DMA', 'Max Drawdown 3y %': 'Max DD 3y',
+  'Dividend Yield %': 'Div yld %', 'Dividend/Share (annual)': 'Div/sh', 'Operating Margin': 'Op. margin', 'Net Margin': 'Net margin', 'Revenue CAGR %': 'Rev CAGR', 'Profit CAGR %': 'Profit CAGR',
+  'Interest Cover': 'Int. cover', 'ROE % (avg 4y)': 'ROE 4y', 'ROE % (latest)': 'ROE', 'ROE % (worst yr)': 'ROE worst', 'Forward P/E': 'Fwd P/E', 'PE vs sector': 'P/E vs sec', 'FCF Yield %': 'FCF yld',
+  'Upside to target %': 'Upside', 'Turnover (Lakh/day)': 'Turnover ₹L', 'Turnover Last Day (Lakh)': 'Turnover ₹L', 'Volatility %': 'Volatility', 'Instrument Type': 'Type', 'Score v2 (portfolio screen)': 'Score v2',
+  'Shareholder (6)': 'Sharehold. (6)', 'Valuation (16)': 'Value (16)', 'Price trend': 'Trend', 'Why this rank': 'Why this rank'};
+const shortH = k => { const t = String(k); return SHORT_H[t] || t.replace(/^Return (\d)y %$/, '$1Y %').replace(/^CAGR (\d)y %$/, 'CAGR $1Y').replace(/^(\d)Y CAGR %$/, 'CAGR $1Y').replace(/^YoY (\d+→\d+) %$/, '$1'); };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const fmtN = (v, d) => v == null ? '' : Number(v).toLocaleString('en-IN', {maximumFractionDigits: d});
 const short = s => String(s).replace(/^(NSE|BSE|CUSTOM):/, '');
@@ -568,7 +576,7 @@ const cmpBtn = sym => { const on = inCmp(sym); return `<button class="mk cmp${on
 const trendOf = sym => { const r = BY.get(sym); return (r && r[CI['Price trend']]) || ''; };
 const trendTag = sym => { const t = trendOf(sym), m = TREND[t]; if (!m) return ''; const r = BY.get(sym), g = k => r[CI[k]], p = v => v == null ? '–' : (v > 0 ? '+' : '') + Math.round(v) + '%';
   const tip = `Price trend: ${t} - ${m[2]}\n1Y ${p(g('Return 1y %'))} · 3Y CAGR ${p(g('CAGR 3y %'))} · 5Y CAGR ${p(g('CAGR 5y %'))}\nYear by year: ${YOY.map(k => p(g(k))).join(', ')}`;
-  return `<span class="trd tg ${m[0]}" title="${esc(tip)}">${m[1]} ${esc(t)}</span>`; };
+  return `<span class="trd tg ${m[0]}" title="${esc(tip)}">${m[1]}<span class="w"> ${esc(t)}</span></span>`; };
 const markBar = (sym, sm) => { const c = markOf(sym); return `<span class="mkbar${sm ? ' sm' : ''}" role="group" aria-label="Mark ${esc(short(sym))}">${MK.map(m => `<button class="mk ${m}${c === m ? ' on' : ''}" data-mark="${m}" data-msym="${esc(sym)}" aria-pressed="${c === m}" title="${c === m ? 'Clear: ' + MARKS[m].n : MARKS[m].v}">${MARKS[m].i}</button>`).join('')}${thinkBtn(sym)}${sm ? cmpBtn(sym) : ''}</span>`; };
 function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
   if (!BY.has(sym)) return;
@@ -915,7 +923,7 @@ function Table(id, rowsFn, defCols, opts = {}) {
       if (k === '_chk') return `<th class="c nosort"><input type="checkbox" data-r="all" title="Select all filtered rows" aria-label="Select all"></th>`;
       if (k === '_act') return `<th class="nosort"></th>`;
       const s = T.sort && T.sort.k === k;
-      return `<th class="${m.t === 'num' ? 'num' : ''} ${s ? 'sorted' : ''}" data-k="${esc(k)}" title="Click to sort">${esc(T.L(k))}${dirMark(k)}${ii(k)}<span class="arrow" title="Sort">${s ? (T.sort.dir > 0 ? '▲' : '▼') : '⇅'}</span></th>`;
+      return `<th class="${m.t === 'num' ? 'num' : ''} ${s ? 'sorted' : ''}" data-k="${esc(k)}" title="${esc(T.L(k))} - click to sort">${esc(shortH(T.L(k)))}${dirMark(k)}${ii(k)}${s ? `<span class="arrow">${T.sort.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`;
     }).join('');
     const f = T.cols.map(k => {
       const m = T.M(k), v = T.f[k] ?? '';
@@ -924,7 +932,7 @@ function Table(id, rowsFn, defCols, opts = {}) {
         const opts = T.distinct(k).map(o => `<option value="${esc(o)}" ${o === v ? 'selected' : ''}>${esc(o === '*assigned' ? 'Any assigned' : o)}</option>`).join('');
         return `<th><select data-f="${esc(k)}" aria-label="Filter ${esc(T.L(k))}"><option value="">All</option>${opts}</select></th>`;
       }
-      const ph = m.t === 'num' ? '>10, <5, 10..30' : 'contains…';
+      const ph = m.t === 'num' ? '>10' : 'contains…';
       return `<th class="${m.t === 'num' ? 'num' : ''}"><input type="text" data-f="${esc(k)}" value="${esc(v)}" placeholder="${ph}" aria-label="Filter ${esc(T.L(k))}"></th>`;
     }).join('');
     th.innerHTML = `<tr class="h">${h}</tr><tr class="f">${f}</tr>`;
@@ -1003,6 +1011,7 @@ function rowHtml(r, T) {
     const m = COLS[CI[k]], v = r[CI[k]];
     if (k === 'Symbol') return `<td class="sym" title="Click for details">${starBtn(v)}<span class="tk">${esc(short(v))}</span><span class="cap" style="margin-left:6px;font-weight:400">${esc(String(v).split(':')[0])}</span>${trendTag(v)}</td>`;
     if (k === 'Company') return `<td class="co" title="${esc(v)}">${esc(v)}</td>`;
+    if (k === 'Sector' || k === 'Industry') return `<td class="sec" title="${esc(v ?? '')}">${esc(v ?? '')}</td>`;
     if (k === 'Cap Class') return `<td>${v ? `<span class="cap ${esc(v)}">${esc(v)}</span>` : ''}</td>`;
     if (k === 'Price trend') return `<td>${trendChip(v)}</td>`;
     if (m.t === 'num') {
@@ -2464,11 +2473,13 @@ if (TEST) {
     [S.stars, S.doubts, S.rejects] = keepS; stView = keepV; tables.star.sel.clear(); tab = 'all'; mountView();
   }
   {
-    const syms = ALL.map(r => r[SYM]), withT = syms.filter(trendOf), ok1 = syms.every(x => { const h = trendTag(x), t = trendOf(x); return t ? h.includes(`${TREND[t][1]} ${t}<`) && h.includes(`trd tg ${TREND[t][0]}`) : !h; });
+    const syms = ALL.map(r => r[SYM]), withT = syms.filter(trendOf), ok1 = syms.every(x => { const h = trendTag(x), t = trendOf(x); return t ? h.includes(`${TREND[t][1]}<span class="w"> ${t}</span>`) && h.includes(`trd tg ${TREND[t][0]}`) : !h; });
     ok(ok1 && withT.length > 300 && !document.querySelector('.hr'), `trend tag: ${withT.length} stocks tagged ⇈ / → / ↘ / ⇊, no 🚀 badge anywhere`);
     openDetail(withT[0]); const hb = dEl.querySelector('h2 .trd.tg'); const has = !!hb && hb.title.includes('Year by year'); closeDetail();
     tab = 'all'; mountView(); const cell = view.querySelector('[data-tbl="all"] td.sym .trd.tg');
     ok(has && cell && Object.keys(TREND).some(t => cell.textContent.endsWith(t)), 'trend tag: shown after the ticker in tables and in the stock popup');
+    { const w = k => { const th = view.querySelector(`[data-tbl="all"] thead tr.h th[data-k="${k}"]`); return th ? th.getBoundingClientRect().width : 999; }, hd = view.querySelector('[data-tbl="all"] thead tr.h th[data-k="Return 1y %"]');
+      ok(w('P/E') < 100 && w('Return 1y %') < 110 && hd && hd.textContent.startsWith('1Y %') && hd.title.startsWith('Return 1y %') && getComputedStyle(cell.querySelector('.w')).display === 'none', `compact tables: short headers, filter boxes don't widen columns, icon-only trend tag (P/E ${Math.round(w('P/E'))}px)`); }
   }
   if (D.top10) {
     tab = 'all'; mountView(); const cols = tables.all.cols;
