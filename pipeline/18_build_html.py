@@ -178,7 +178,12 @@ _ki = {k: i for i, k in enumerate(MORE_KEYS)}
 more = {k: [[_ki[(g, l)], x] for g, l, x in v] for k, v in more.items() if v}   # compact: field index -> value; names live once in moreKeys
 print(f'popup extras embedded: {len(more)} scrips with extra fields, {len(prom)} with promoter history')
 
-data = {'more': more, 'moreKeys': [list(k) for k in MORE_KEYS], 'prom': prom, 'suggested': assign, 'baseline': 'clean-2026-10-04' if START_EMPTY else 'suggested', 'v3all': v3all, 'n100': n100, 'top10': top10, 'cheat': cheat, 'picks': picks, 'sec': sec, 'bt': bt, 'accounts': ACCOUNTS, 'cols': cols, 'rows': rows, 'assign0': {} if START_EMPTY else assign, 'asOf': datetime.date.fromisoformat(load_json('inputs_meta.json').get('nse_bhav_date', '2026-10-01')).strftime('%d %b %Y').lstrip('0'), 'built': datetime.date.today().isoformat()}
+# ---- price history for the popup chart (step 06) - optional ----
+chart = {}
+for s0, h in load_json('raw_chart.json').items():
+    if h and h.get('w'): chart['NSE:' + s0] = [h['w0'], h['w'], h.get('m0'), h.get('m') or []]
+print(f'chart history embedded: {len(chart)} stocks')
+data = {'chart': chart, 'more': more, 'moreKeys': [list(k) for k in MORE_KEYS], 'prom': prom, 'suggested': assign, 'baseline': 'clean-2026-10-04' if START_EMPTY else 'suggested', 'v3all': v3all, 'n100': n100, 'top10': top10, 'cheat': cheat, 'picks': picks, 'sec': sec, 'bt': bt, 'accounts': ACCOUNTS, 'cols': cols, 'rows': rows, 'assign0': {} if START_EMPTY else assign, 'asOf': datetime.date.fromisoformat(load_json('inputs_meta.json').get('nse_bhav_date', '2026-10-01')).strftime('%d %b %Y').lstrip('0'), 'built': datetime.date.today().isoformat()}
 blob = json.dumps(data, separators=(',', ':'), ensure_ascii=False).replace('</', '<\\/')
 html = open(os.path.join(HERE, 'portfolio_template.html'), encoding='utf-8').read().replace('/*DATA*/', blob)
 out = f'{B}/Portfolio_Manager.html'

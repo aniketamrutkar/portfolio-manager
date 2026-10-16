@@ -10,7 +10,7 @@ PY="${PYTHON:-}"
 if [[ -z "$PY" ]]; then [[ -x "$ROOT/.venv/bin/python" ]] && PY="$ROOT/.venv/bin/python" || PY=python3; fi
 cd "$ROOT/pipeline"
 MODE="${1:-}"
-FETCH=(01_fetch_nse_equities 02_fetch_nifty500_deep 03_fetch_nse_promoter 04_fetch_etf_reit_invit 05_fetch_bse_only)
+FETCH=(01_fetch_nse_equities 02_fetch_nifty500_deep 03_fetch_nse_promoter 04_fetch_etf_reit_invit 05_fetch_bse_only 06_fetch_chart_history)
 BUILD=(10_build_nse_base 11_build_universe 12_build_screen_and_picks 13_build_etf_lists 14_backtest 15_sector_returns 16_sector_picks 17_sector_top10_v3 18_build_html)
 
 if [[ "$MODE" == "--refresh" ]]; then

@@ -93,6 +93,7 @@ All scripts locate themselves through `common.py`, so they run from any working 
 | `03_fetch_nse_promoter.py` | NSE `/api/corporate-share-holdings-master` | `raw3.json` | ~5 min | Promoter % for the last 6 quarters. Needs NSE cookies, which the script handles. |
 | `04_fetch_etf_reit_invit.py` | Yahoo | `raw_other.json` | ~5 min | ETFs, REITs and InvITs. |
 | `05_fetch_bse_only.py` | Yahoo (`TICKERNAME.BO`) | `raw_bse2.json` | ~5 min | Only BSE-only equities with turnover above ₹10 lakh on the bhavcopy day (~470). The rest keep bhavcopy price and turnover only. |
+| `06_fetch_chart_history.py` | Yahoo daily closes (`.NS`, split-adjusted) | `raw_chart.json` | ~10 min | Price history for the chart in the stock popup, every Nifty 500 stock: weekly closes for the last 5 years, month-end closes before that (up to 20 years). |
 | `10_build_nse_base.py` | raw.json + masters | `pipeline/All_NSE_Scrips_Data.csv` | s | Cap class by market-cap rank. |
 | `11_build_universe.py` | everything above | `All_Scrips_NSE_BSE.csv` | s | Merges REITs/InvITs that are also in the Nifty 500 into a single row. |
 | `12_build_screen_and_picks.py` | step 10 CSV + raw2/raw3 | `Nifty500_Analysis.csv`, `Account_Portfolios_20+20.csv` | s | **Regenerates the stock picks** (§5). |

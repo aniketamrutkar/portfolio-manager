@@ -36,6 +36,8 @@ header p{margin:0;color:var(--muted);font-size:12.5px}
 table{width:100%;border-collapse:collapse;min-width:980px}
 th,td{padding:6px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
 thead th{position:sticky;top:0;background:var(--surface-2);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;z-index:2}
+thead th.canmove{cursor:grab} thead th.col-src{opacity:.5}
+thead th.col-before{box-shadow:inset 3px 0 0 var(--accent)} thead th.col-after{box-shadow:inset -3px 0 0 var(--accent)}
 td:first-child,th:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
 thead th:first-child{background:var(--surface-2);z-index:3}
 tr.grp td{background:var(--surface-2);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:5px 9px}
@@ -145,5 +147,58 @@ footer{margin-top:10px;color:var(--faint);font-size:11.5px}
 </div>
 <footer>Formulas use a sample company "Chai Ltd" (price ₹200, profit ₹40 Cr, equity ₹200 Cr, debt ₹100 Cr) in the explanations. Ranges are general Indian-market rules of thumb, not investment advice. Prints on one A4 landscape page.</footer>
 </main>
+<script>
+(() => {
+  const table = document.querySelector('table'); if (!table || !table.tHead) return;
+  const head = table.tHead.rows[0], KEY = 'cheat-col-order';
+  const label = th => (th.textContent || '').replace(/\s+/g, ' ').trim();
+  [...head.cells].forEach((th, i) => { if (i) { th.classList.add('canmove'); th.title = 'Drag to move this column'; } });
+  const move = (from, insert) => {
+    if (from === insert || insert < 1) return;
+    const n = head.cells.length;
+    for (const row of [...table.rows]) {
+      if (row.cells.length !== n) continue;
+      const cell = row.cells[from]; cell.remove();
+      if (insert >= row.cells.length) row.appendChild(cell); else row.cells[insert].before(cell);
+    }
+  };
+  try {
+    const want = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+    if (want) for (let dest = 1; dest < want.length; dest++) {
+      const from = [...head.cells].findIndex(th => label(th) === want[dest]);
+      if (from > 0 && from !== dest) move(from, dest);
+    }
+  } catch (e) {}
+  let drag = null;
+  head.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    const th = e.target.closest('th'); if (!th || th.parentElement !== head || [...head.cells].indexOf(th) < 1) return;
+    drag = {from: [...head.cells].indexOf(th), x: e.clientX, y: e.clientY, moved: false, insert: null, th};
+  });
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+    drag.moved = true; drag.th.classList.add('col-src');
+    [...head.cells].forEach(th => th.classList.remove('col-before', 'col-after'));
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const over = el && el.closest && el.closest('th');
+    if (!over || over.parentElement !== head) { drag.insert = null; return; }
+    let idx = [...head.cells].indexOf(over), after = e.clientX >= over.getBoundingClientRect().left + over.getBoundingClientRect().width / 2;
+    if (idx < 1) { idx = 1; after = false; }
+    let insert = after ? idx + 1 : idx; if (drag.from < insert) insert--; if (insert < 1) insert = 1;
+    drag.insert = insert;
+    if (insert !== drag.from) head.cells[Math.min(idx, head.cells.length - 1)].classList.add(after ? 'col-after' : 'col-before');
+  });
+  addEventListener('pointerup', () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    d.th.classList.remove('col-src');
+    [...head.cells].forEach(th => th.classList.remove('col-before', 'col-after'));
+    if (!d.moved || d.insert == null || d.insert === d.from) return;
+    move(d.from, d.insert);
+    try { sessionStorage.setItem(KEY, JSON.stringify([...head.cells].map(label))); } catch (e) {}
+  });
+})();
+</script>
 </body>
 </html>
