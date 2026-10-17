@@ -1,11 +1,12 @@
 """Step 00 - download exchange master lists + the latest NSE and BSE bhavcopies (no login needed).
-Writes (in pipeline/): EQUITY_L.csv, n500.csv, etf.csv, nse_bhav.csv, bse_bhav.csv, bse_all.csv, bse_only.csv, inputs_meta.json"""
+Writes (in pipeline/): EQUITY_L.csv, n500.csv, ntm.csv, etf.csv, nse_bhav.csv, bse_bhav.csv, bse_all.csv, bse_only.csv, inputs_meta.json"""
 import datetime as dt, json, sys
 import pandas as pd, requests
 from common import UA
 
 NSE = {'EQUITY_L.csv': 'https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv',            # all NSE equities
        'n500.csv': 'https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv',         # Nifty 500 + NSE sector
+       'ntm.csv': 'https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv', # Nifty Total Market (750) + NSE sector
        'etf.csv': 'https://nsearchives.nseindia.com/content/equities/eq_etfseclist.csv',           # NSE ETF master
        'nifty100.csv': 'https://nsearchives.nseindia.com/content/indices/ind_nifty100list.csv'}      # Nifty 100 members (step 17)
 s = requests.Session()

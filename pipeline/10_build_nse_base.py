@@ -1,7 +1,7 @@
 """Step 10 - flatten raw.json + EQUITY_L + Nifty 500 sectors into pipeline/All_NSE_Scrips_Data.csv (intermediate used by step 12).
 Cap class = rank by market cap: 1-100 Large, 101-250 Mid, 251-500 Small, rest Micro (SEBI/AMFI-style, computed - not the official AMFI list)."""
 import pandas as pd, json, numpy as np
-from common import OUT
+from common import OUT, official_sectors, nse_sector
 eq = pd.read_csv('EQUITY_L.csv'); eq.columns = [c.strip() for c in eq.columns]
 eq = eq.rename(columns={'SYMBOL': 'Symbol', 'NAME OF COMPANY': 'Company', 'ISIN NUMBER': 'ISIN', 'SERIES': 'Series'})
 eq['Series'] = eq['Series'].str.strip()
@@ -27,11 +27,7 @@ def cap(r):
     return 'Large' if r <= 100 else 'Mid' if r <= 250 else 'Small' if r <= 500 else 'Micro'
 df['Cap'] = df['McapRank'].where(df['MarketCap_Cr'].notna()).map(cap)
 
-ymap = {'Financial Services': 'Financial Services', 'Technology': 'Information Technology', 'Healthcare': 'Healthcare',
-        'Consumer Defensive': 'Fast Moving Consumer Goods', 'Consumer Cyclical': 'Consumer Discretionary',
-        'Industrials': 'Capital Goods', 'Energy': 'Oil Gas & Consumable Fuels', 'Basic Materials': 'Materials',
-        'Utilities': 'Power', 'Real Estate': 'Realty', 'Communication Services': 'Media Entertainment & Telecom'}
-df['Sector'] = df['NSE Sector'].fillna(df['sector'].map(ymap)).fillna('Unclassified')
+df['Sector'] = nse_sector(df['NSE Sector'].fillna(df['Symbol'].map(official_sectors())), df['industry'], df['sector'])   # NSE's own sector where published, else mapped
 df['DivYield_%'] = df['dividendYield'].round(2)   # yfinance already returns percent
 df['DivPerShare'] = df['dividendRate'].fillna(df['trailingAnnualDividendRate']).round(2)
 df['PE'] = df['trailingPE'].where(df['trailingPE'] > 0).round(1)

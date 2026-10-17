@@ -1,6 +1,6 @@
 # Broking-Data
 
-A reproducible pipeline that builds a database of **every Indian listed instrument except F&O**, screens the Nifty 500 for quality, and splits a portfolio across **3 broking accounts: PEW-Angel, JPW-Angel and JPW-Zerodha**. Each account gets 20 Active stocks, 20 To Invest stocks and 9 ETF/SGB holdings. The account lists can be edited in a self-contained HTML app (`Portfolio_Manager.html`) and downloaded as CSVs.
+A reproducible pipeline that builds a database of **every Indian listed instrument except F&O**, screens the Nifty 500 for quality, and splits a portfolio across **3 broking accounts: PEW-Zerodha, JPW-Angel and JPW-Zerodha**. Each account gets 20 Active stocks, 20 To Invest stocks and 9 ETF/SGB holdings. The account lists can be edited in a self-contained HTML app (`Portfolio_Manager.html`) and downloaded as CSVs.
 
 > **For AI agents:** read "Quick start" and "Gotchas" before running anything. Every step is idempotent and resumable. The repo already contains the fetched raw data (as of 1–2 Oct 2026), so `./run_all.sh` rebuilds all deliverables **offline in about 30 seconds**. Re-fetching from the internet is only needed to refresh the data.
 
@@ -37,7 +37,7 @@ open Portfolio_Manager.html  # or double-click it; on Windows: start Portfolio_M
 | `Portfolio_Manager.html` | – | Offline app for browsing all scrips and editing the 3 accounts. Downloads account-wise CSVs or a ZIP. See §6. |
 | `All_Scrips_NSE_BSE.csv` | 5,097 | The universe: NSE-listed equities (2,594, with BSE codes when dual-listed), BSE-only equities (2,023, incl. 411 SME), NSE ETFs (351) + BSE-only ETFs/funds (8), SGB (44), G-Sec (55), REIT (6), InvIT (16). |
 | `Nifty500_Analysis.csv` | ~501 | Deep dive and screen on the Nifty 500. Covers multi-year growth, ROE consistency, margins, leverage, cash flow, promoter holding, returns, a 0–100 score with sub-scores, the reason a stock was filtered out, and a `Selected` flag. |
-| `Suggested_Lists_Backup/Account_Portfolios_20+20.csv` | 120 | Stock picks: `Account` (`PEW-Angel`, `JPW-Angel`, `JPW-Zerodha`) × `Bucket` (`Active (20)` / `To Invest (20)`). |
+| `Suggested_Lists_Backup/Account_Portfolios_20+20.csv` | 120 | Stock picks: `Account` (`PEW-Zerodha`, `JPW-Angel`, `JPW-Zerodha`) × `Bucket` (`Active (20)` / `To Invest (20)`). |
 | `Suggested_Lists_Backup/ETF_SGB_Per_Account.csv` | 27 | ETF/SGB holdings: 9 slots per account, with no fund repeated across accounts. |
 | `Backtest_Summary.csv` / `Backtest_Holdings.csv` / `Backtest_Daily.csv` | 50 / 735 / ~3,700 | What-if backtest over **1, 2, 3, 4 and 5 years**, all ending on the 1 Oct 2026 close. ₹50,000 goes into each of the 40 stocks per account (₹20 L) and, separately, each of its 9 ETF/SGB holdings (₹4.5 L), compared with Nifty 50 and Nifty 500. The files give total return and CAGR per account, portfolio and horizon, every holding × horizon, and daily wealth indexed to 100. |
 | `Sector_Returns.csv` | 121 | Every live NSE equity index: 23 sectoral, 41 thematic (Defence, Railways PSU, CPSE, PSE, Capital Markets, EV, Digital, Tourism, SME Emerge and more), 21 broad-market and 36 strategy/factor indices, plus the Sensex. Gives CAGR and total return over 1, 2, 3, 5, 10, 15, 20, 25 and 30 years to 1 Oct 2026, with data-start date and since-inception CAGR. These are price indices, so dividends are excluded. Independent of the account lists. |
@@ -113,7 +113,7 @@ All fetch steps are **resumable**. Re-running one fetches only symbols that are 
 
 **Cap class** is computed, not the official AMFI list. NSE equities are ranked by Yahoo market cap: 1–100 Large, 101–250 Mid, 251–500 Small, the rest Micro. BSE-only scrips use the market-cap cutoffs of those ranks, which were about ₹1,05,886 / ₹34,965 / ₹13,180 Cr in Oct 2026. Equity ETFs are classed from their index name (Nifty 50 → Large, Midcap → Mid, Smallcap → Small).
 
-**Sector** is NSE's macro sector from the Nifty 500 list (about 21 sectors). Elsewhere it is Yahoo's sector mapped to similar names. ETFs show `ETF · Equity`, `ETF · Commodity`, `ETF · Debt` and so on.
+**Sector** is NSE's own 22-sector classification (NSE Indices Industry Classification Structure). It is official for the ~750 stocks in NSE's Nifty 500 and Nifty Total Market files (`n500.csv`, `ntm.csv`). For every other scrip it is derived from Yahoo's industry with `INDUSTRY_TO_NSE` in `common.py`, following NSE's rules: tractors, trucks and construction vehicles are Capital Goods (not Auto), auto dealers are Auto, steel is Metals & Mining, fertilisers and agrochemicals are Chemicals. Scrips with no Yahoo data stay `Unclassified`. ETFs show `ETF · Equity`, `ETF · Commodity`, `ETF · Debt` and so on.
 
 **Screen (step 12, Nifty 500 only).** A stock is rejected (`Filtered Out Because`) if any of these hold:
 - illiquid or no data (average daily turnover below ₹1 Cr = average volume × price)
@@ -145,7 +145,7 @@ Financial Services stocks skip the debt, interest-cover and cash-flow tests and 
 
 **ETF/SGB holdings (step 13).** The same 9 slots in each account, each filled by a different fund: Nifty 50, Midcap, Smallcap, Gold, Silver, International, Sector, Liquid and SGB. Funds were ranked by last-day turnover. Series with data glitches were excluded (SILVER1, SETFGOLD, BSLNIFTY, TATSILV).
 
-**Account names.** These are defined once, in `ACCOUNTS` in `pipeline/common.py`: `{1: 'PEW-Angel', 2: 'JPW-Angel', 3: 'JPW-Zerodha'}`. Steps 12–14 and the HTML read the names from there, so to rename an account, change that dict and run `./run_all.sh`. Internally the HTML stores account **ids 1–3**, so saved browser edits survive a rename. Account-wise downloads are named after the account, for example `PEW-Angel_Portfolio_<date>.csv`.
+**Account names.** These are defined once, in `ACCOUNTS` in `pipeline/common.py`: `{1: 'PEW-Zerodha', 2: 'JPW-Angel', 3: 'JPW-Zerodha'}`. Steps 12–14 and the HTML read the names from there, so to rename an account, change that dict and run `./run_all.sh`. Internally the HTML stores account **ids 1–3**, so saved browser edits survive a rename. Account-wise downloads are named after the account, for example `PEW-Zerodha_Portfolio_<date>.csv`.
 
 **Tuning knobs.**
 - Step 12: the `rej(...)` filter lines, the score weights in `P['Score'] = …`, the quotas `{'Large': 48, 'Mid': 36, 'Small': 36}`, `CAPN`, and the sector weights `W`.
@@ -174,7 +174,7 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
 - **Tabs:**
   - **All Scrips:** the whole universe, with an Assigned badge or a `＋ Assign` button.
   - **Board:** the 3 accounts side by side, with drag and drop between accounts and lists.
-  - **PEW-Angel / JPW-Angel / JPW-Zerodha:** one tab per account, with summary cards per list (count against an editable target, the large/mid/small split, sectors), plus Add/Move/Remove.
+  - **PEW-Zerodha / JPW-Angel / JPW-Zerodha:** one tab per account, with summary cards per list (count against an editable target, the large/mid/small split, sectors), plus Add/Move/Remove.
   - **Changes:** differences from the lists the file was built with, each with a Revert button.
 - **Frozen columns:** every table pins its identifying column (Symbol, or Index on Sectors) while you scroll sideways. **📌 Freeze ▾** lets you freeze up to any column, or none, and the choice is remembered per table. The default freeze is skipped below 720px width. Implemented as `T.applyFreeze()` in the template using per-table sticky CSS.
 - **Tables:** global multi-word search, sort by clicking a header, a filter per column, a column picker over all 55 fields, pagination, multi-select with bulk Assign/Remove, and **Export view**. Column filters work as follows:
@@ -202,7 +202,7 @@ The HTML is a single offline file. The data is embedded as JSON, it has no exter
   - **★ ? ✗** buttons sit beside every ticker: All Scrips, account tabs, Sector Top 10, Nifty 100, Sector Picks, Backtest, the Compare header and the stock popup (larger there). One click sets that mark (★ Shortlist, ? Doubtful, ✗ Reject); clicking the lit one again clears it. Unmarked icons are faint grey; the active one is coloured.
   - A stock has at most one mark. Rejected stocks are dimmed (ticker struck through) in every table so they stand out while browsing.
   - The **★ ? ✗ Shortlist** tab has a switch for ★ Shortlisted / ? Doubtful / ✗ Rejected / All marked, sorted by v3 score, with a Mark and a "Marked on" column. Tiles count each mark and how many ★ stocks are already in each account.
-  - From there you can tick stocks and use **Selected → ★ / ? / ✗ / Clear mark** to move them between lists, **Assign to…** to divide them into PEW-Angel, JPW-Angel or JPW-Zerodha (Active / To Invest / ETF·SGB), send up to 10 to **⚖ Compare**, or clear the current list (click twice to confirm).
+  - From there you can tick stocks and use **Selected → ★ / ? / ✗ / Clear mark** to move them between lists, **Assign to…** to divide them into PEW-Zerodha, JPW-Angel or JPW-Zerodha (Active / To Invest / ETF·SGB), send up to 10 to **⚖ Compare**, or clear the current list (click twice to confirm).
   - Marks are stored in `S.stars`, `S.doubts`, `S.rejects` (symbol → timestamp; `MARKS` in the template maps them). They survive the clean-slate baseline switch and are included in State ▾ save/load. Only ★ counts as "your pick" in Sector Top 10 / Nifty 100.
 - **Compare tab:** pick 2–10 stocks (search box, **⚖ Compare** in any stock popup, or from ★ Shortlist) and see them side by side on every calculated field:
   - overview and account/list membership
@@ -317,5 +317,6 @@ An attempt was made to use the owner's Angel One SmartAPI subscription for price
 - 2026-10-03: added the multi-horizon backtest (1–5Y, stocks and ETF/SGB against Nifty 50/500) as step 14, and a **Backtest** tab in the HTML. The HTML build is now step 16. Also added better-direction arrows in the headers.
 - 2026-10-03: added ⓘ glossary tooltips (meaning, better-direction and ideal range) for every field.
 - 2026-10-03: added the stock detail popup (row, chip or Changes click; `#scrip=` deep link).
+- 2026-10-18: account 1 renamed from PEW-Angel to PEW-Zerodha throughout (CSVs, HTML, backtest, downloads). Picks and assignments are unchanged.
 - 2026-10-03: accounts renamed to PEW-Angel (1), JPW-Angel (2) and JPW-Zerodha (3) throughout: CSVs, HTML and downloads. The picks are unchanged.
 - 2026-10-03: first build. NSE universe and v1 screen, then v2 deep dive (multi-year financials, NSE promoter data), then BSE-only scrips, ETFs, SGB, REIT/InvIT and G-Sec, then the ETF/SGB holdings per account and the HTML manager. The pipeline was refactored into numbered, resumable, path-independent steps, and the refactor was verified to reproduce byte-identical deliverables.

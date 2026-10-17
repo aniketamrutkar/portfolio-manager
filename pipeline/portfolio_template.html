@@ -1857,7 +1857,7 @@ function drawSummary(a) {
 }
 let boardQ = '';
 function mountBoard() {
-  view.innerHTML = `<div class="toolbar"><input type="search" placeholder="Highlight symbol / company / sector…" value="${esc(boardQ)}" data-bq aria-label="Highlight scrips">
+  view.innerHTML = `<div class="toolbar"><input type="search" placeholder="Filter by symbol / company / sector…" value="${esc(boardQ)}" data-bq aria-label="Filter scrips"><span class="count" data-bqn></span>
     <span class="hint" style="margin:0">Drag a scrip onto another account or list to move it. Click a scrip for details and actions. Dot colour = cap (blue large, teal mid, amber small).</span></div><div class="board" id="board"></div>`;
   const q = view.querySelector('[data-bq]'); q.oninput = () => { boardQ = q.value; drawBoard(); };
   drawBoard();
@@ -1865,15 +1865,20 @@ function mountBoard() {
 function drawBoard() {
   const el = document.getElementById('board'); if (!el) return;
   const t = boardQ.trim().toLowerCase();
-  el.innerHTML = ACCS.map(a => `<section class="col"><h2><span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--a${a});margin-right:6px"></span>${esc(AN(a))}</span><span class="count">${accRows(a).length} scrips</span></h2>
+  const all = ACCS.flatMap(a => accRows(a));
+  // a sector name (or its start, 4+ letters: "capital", "auto") filters by sector only - so "Financial Services" does not pull in OFSS (an IT stock named
+  // "Oracle Financial Services Software"); anything else matches symbol, company, sector or industry
+  const secs = t.length >= 4 ? [...new Set(all.map(r => r[CI['Sector']]).filter(x => x && String(x).toLowerCase().startsWith(t)))] : [];
+  const match = r => !t || (secs.length ? secs.includes(r[CI['Sector']]) : (short(r[SYM]) + ' ' + (r[CI['Company']] || '') + ' ' + (r[CI['Sector']] || '') + ' ' + (r[CI['Industry']] || '')).toLowerCase().includes(t));
+  const nHit = all.filter(match).length, nb = document.querySelector('[data-bqn]'); if (nb) nb.textContent = t ? `${nHit} of ${all.length} scrips${secs.length ? ' · sector: ' + secs.join(', ') : ' match'}` : '';
+  el.innerHTML = ACCS.map(a => `<section class="col"><h2><span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--a${a});margin-right:6px"></span>${esc(AN(a))}</span><span class="count">${t ? `${accRows(a).filter(match).length} of ` : ''}${accRows(a).length} scrips</span></h2>
     ${LISTS.map(l => {
-      const rows = accRows(a, l).sort((x, y) => (['Large', 'Mid', 'Small'].indexOf(x[CI['Cap Class']]) + 9) % 12 - (['Large', 'Mid', 'Small'].indexOf(y[CI['Cap Class']]) + 9) % 12 || String(x[SYM]).localeCompare(String(y[SYM])));
+      const rows0 = accRows(a, l), rows = rows0.filter(match).sort((x, y) => (['Large', 'Mid', 'Small'].indexOf(x[CI['Cap Class']]) + 9) % 12 - (['Large', 'Mid', 'Small'].indexOf(y[CI['Cap Class']]) + 9) % 12 || String(x[SYM]).localeCompare(String(y[SYM])));
       const tg = S.targets[l];
-      return `<div class="zone" data-a="${a}" data-l="${esc(l)}"><h4><span>${esc(l)}</span><span style="color:${tg && rows.length !== tg ? 'var(--warn)' : 'inherit'}">${rows.length}${tg ? ' / ' + tg : ''}</span></h4><div class="chips">${rows.map(r => {
-        const hay = (short(r[SYM]) + ' ' + (r[CI['Company']] || '') + ' ' + (r[CI['Sector']] || '')).toLowerCase();
-        const cls = t ? (hay.includes(t) ? 'hit' : 'dim') : '';
+      return `<div class="zone" data-a="${a}" data-l="${esc(l)}"><h4><span>${esc(l)}</span><span style="color:${tg && rows0.length !== tg ? 'var(--warn)' : 'inherit'}">${t ? `<span class="count">${rows.length} shown · </span>` : ''}${rows0.length}${tg ? ' / ' + tg : ''}</span></h4><div class="chips">${rows.map(r => {
+        const cls = '';
         return `<span class="card-chip ${cls}" draggable="true" data-sym="${esc(r[SYM])}" title="${esc(r[CI['Company']])} — ${esc(r[CI['Sector']] || '')}${r[CI['Cap Class']] ? ' · ' + esc(r[CI['Cap Class']]) : ''}" tabindex="0"><span class="d ${esc(r[CI['Cap Class']] || '')}"></span><span class="s">${esc(short(r[SYM]))}</span>${symTags(r[SYM])}<span class="m">${esc(String(r[CI['Sector']] || '').split(/[ &]/)[0])}</span></span>`;
-      }).join('') || '<span class="hint" style="margin:0">Drop scrips here</span>'}</div></div>`;
+      }).join('') || `<span class="hint" style="margin:0">${t && rows0.length ? `No match here (${rows0.length} hidden) — drop scrips here` : 'Drop scrips here'}</span>`}</div></div>`;
     }).join('')}</section>`).join('');
 }
 // board drag & drop (delegated once)
@@ -2469,7 +2474,7 @@ function mountShortlist() {
     <div class="panel"><h3>${stView === 'all' ? 'All marked stocks' : `${VIEWS[stView].i} ${VIEWS[stView].n}`} — sorted by v3 score${ii('Score v3')}</h3>
       <div class="mseg" data-stv>${segs.map(([id, l, n]) => `<button aria-pressed="${id === stView}" data-v="${id}">${l}<span class="n">${n}</span></button>`).join('')}</div>
       <div class="mseg trseg" data-sttr><span class="lab" title="${esc(GL['Price trend'].d)}">Trend</span>${trSegs(baseRows().map(r => r[SYM])).map(([id, l, n]) => `<button aria-pressed="${id === stTr}" data-t="${esc(id)}">${l}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="sub">Mark any stock in any tab with the <b>★ Shortlist</b> · <b>? Doubtful</b> · <b>✗ Reject</b> buttons beside its ticker (or in its popup); click again to clear. Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Angel, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
+      <div class="sub">Mark any stock in any tab with the <b>★ Shortlist</b> · <b>? Doubtful</b> · <b>✗ Reject</b> buttons beside its ticker (or in its popup); click again to clear. Here, tick stocks and use <b>Selected →</b> to move them between lists, <b>Assign to…</b> to divide shortlisted ones between PEW-Zerodha, JPW-Angel and JPW-Zerodha, or <b>⚖ Compare</b> up to 10 side by side.</div><div data-stt></div></div>`;
   T.mount(view.querySelector('[data-stt]'));
   view.querySelector('[data-sttr]').onclick = e => { const b = e.target.closest('[data-t]'); if (!b || b.dataset.t === stTr) return; stTr = b.dataset.t; try { sessionStorage.setItem(STORE + '-sttr', stTr); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
   view.querySelector('[data-stv]').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === stView) return; stView = b.dataset.v; try { sessionStorage.setItem(STORE + '-stview', stView); } catch (er) {} T.sel.clear(); T.page = 0; mountShortlist(); };
@@ -2513,7 +2518,7 @@ function mountFinal() {
     <div class="tiles">${tile('<span class="st on star" style="cursor:default">★</span>Shortlisted', rows.length, `${secs.length} sectors`)}${tile('Not in an account', free, 'tick them → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from this list')).join('')}${tile('📝 With a note', noted, `${rows.length - noted} without`)}${tile('# Ranked by you', ranked, `${rows.length - ranked} unranked`)}</div>
     <div class="panel"><h3>★ Shortlisted — by sector</h3>
       <div class="mseg secseg" data-fsec>${[['', 'All sectors', rows.length], ...secs.map(([k, n]) => [k, k, n])].map(([id, l, n]) => `<button aria-pressed="${id === finSec}" data-v="${esc(id)}">${esc(l)}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="sub">Only your ★ shortlisted stocks, in your <b>Overall #</b> order (your rank among all ★ stocks; unranked ones after, best v3 first). <b>Sector #</b> is your rank within the stock's own sector — pick a sector and the list follows it. <b>Drag a row by its ⠿ grip</b> to move it up or down, or type a number in <b>Overall #</b> / <b>Sector #</b> and press Enter — the others move down to make room; clear it to unrank. (Dragging works when no column sort, search or filter is on.) Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Angel, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
+      <div class="sub">Only your ★ shortlisted stocks, in your <b>Overall #</b> order (your rank among all ★ stocks; unranked ones after, best v3 first). <b>Sector #</b> is your rank within the stock's own sector — pick a sector and the list follows it. <b>Drag a row by its ⠿ grip</b> to move it up or down, or type a number in <b>Overall #</b> / <b>Sector #</b> and press Enter — the others move down to make room; clear it to unrank. (Dragging works when no column sort, search or filter is on.) Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Zerodha, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
   T.mount(view.querySelector('[data-fint]'));
   // drag rows by the ⠿ grip to re-rank: All sectors -> Overall #, a sector picked -> Sector #
   T.el.classList.toggle('nodrag', !!(T.sort || T.q || Object.values(T.f).some(v => v)));
@@ -2952,6 +2957,13 @@ if (TEST) {
       delete tables.fin; mountView(); const c2 = tables.fin.cols.slice();
       ok(c1.filter(k => k === '_rks').length === 1 && !c1.includes('_rko') && c2.join() === c1.join(), 'columns: a saved layout never shows a column twice, and a hidden Overall # stays hidden');
       if (kv) S.vis.fin = kv; else delete S.vis.fin; delete tables.fin; if (kt) tables.fin = kt; tab = 'all'; mountView(); }
+    { const NSE22 = new Set(['Automobile and Auto Components', 'Capital Goods', 'Chemicals', 'Construction', 'Construction Materials', 'Consumer Durables', 'Consumer Services', 'Diversified', 'Fast Moving Consumer Goods', 'Financial Services', 'Forest Materials', 'Healthcare', 'Information Technology', 'Media Entertainment & Publication', 'Metals & Mining', 'Oil Gas & Consumable Fuels', 'Power', 'Realty', 'Services', 'Telecommunication', 'Textiles', 'Utilities', 'Unclassified']);
+      const eqs = ALL.filter(r => /^Equity/.test(r[CI['Instrument Type']] || '')), bad = [...new Set(eqs.map(r => r[CI['Sector']]).filter(x => !NSE22.has(x)))], g = sym => (BY.get(sym) || [])[CI['Sector']];
+      ok(!bad.length && g('NSE:ASHOKLEY') === 'Capital Goods' && g('NSE:MARUTI') === 'Automobile and Auto Components' && eqs.filter(r => r[CI['Sector']] === 'Automobile and Auto Components').length > 100, `sectors: every equity uses NSE's 22-sector names${bad.length ? ' (not: ' + bad.join(', ') + ')' : ''}; CVs / tractors in Capital Goods as NSE classifies them`); }
+    { const sec = 'Financial Services', kq = boardQ; tab = 'board'; mountView(); const q = view.querySelector('[data-bq]'); q.value = sec; q.dispatchEvent(new Event('input', {bubbles: true}));
+      const chips = [...view.querySelectorAll('.card-chip')], want = ACCS.flatMap(a => accRows(a)).filter(r => r[CI['Sector']] === sec).length;
+      ok(chips.length && chips.every(c => BY.get(c.dataset.sym)[CI['Sector']] === sec) && chips.length === want && view.querySelector('[data-bqn]').textContent.startsWith(`${want} of`), `board: typing a sector shows only its scrips (${want}), the rest are hidden`);
+      q.value = ''; q.dispatchEvent(new Event('input', {bubbles: true})); ok(view.querySelectorAll('.card-chip').length === ACCS.flatMap(a => accRows(a)).length, 'board: clearing the search shows every scrip again'); boardQ = kq; tab = 'all'; mountView(); }
     { const hb = ALL.find(r => r[CI['Series']] === 'BE'), zb = ALL.find(r => r[CI['Series']] === 'Z'), eq = ALL.find(r => r[CI['Series']] === 'EQ'), bg = ALL.find(r => r[CI['Series']] === 'B');
       ok(hb && zb && seriesTag(hb[SYM]).includes('>T2T<') && seriesTag(zb[SYM]).includes('sg z') && !seriesTag(eq[SYM]) && !seriesTag(bg[SYM]), `series tag: T2T for BE (${short(hb[SYM])}), Z for BSE Z group, none for EQ / BSE B`);
       tab = 'all'; mountView(); tables.all.q = short(hb[SYM]); tables.all.body(); const c = [...view.querySelectorAll('[data-tbl="all"] td.sym')].find(td => td.querySelector('.tk').textContent === short(hb[SYM]));

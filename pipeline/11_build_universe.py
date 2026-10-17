@@ -1,11 +1,7 @@
 """Step 11 - unified universe -> ../All_Scrips_NSE_BSE.csv: NSE equities (with BSE codes) + BSE-only equities + ETFs + REIT/InvIT + SGB + G-Sec + BSE-only ETFs."""
 import pandas as pd, json, numpy as np, os
-from common import OUT
+from common import OUT, official_sectors, nse_sector
 num = lambda s: pd.to_numeric(s, errors='coerce').replace([np.inf, -np.inf], np.nan)
-ymap = {'Financial Services': 'Financial Services', 'Technology': 'Information Technology', 'Healthcare': 'Healthcare',
-        'Consumer Defensive': 'Fast Moving Consumer Goods', 'Consumer Cyclical': 'Consumer Discretionary', 'Industrials': 'Capital Goods',
-        'Energy': 'Oil Gas & Consumable Fuels', 'Basic Materials': 'Materials', 'Utilities': 'Power', 'Real Estate': 'Realty',
-        'Communication Services': 'Media Entertainment & Telecom'}
 
 # ---- bhavcopies (price/turnover for everything) ----
 nb = pd.read_csv('nse_bhav.csv', skipinitialspace=True); nb.columns = [c.strip() for c in nb.columns]
@@ -39,7 +35,7 @@ def cap_by_mcap(m):
     if pd.isna(m): return ''
     return 'Large' if m >= cut[100] else 'Mid' if m >= cut[250] else 'Small' if m >= cut[500] else 'Micro'
 nse['Cap'] = nse['MCap'].map(cap_by_mcap)
-nse['SectorFinal'] = nse['NSE Sector'].fillna(nse['sector'].map(ymap)).fillna('Unclassified')
+nse['SectorFinal'] = nse_sector(nse['NSE Sector'].fillna(nse['Sym'].map(official_sectors())), nse['industry'], nse['sector'])   # NSE's own sector where published, else mapped
 
 def frame(df, itype, exch, **k):
     o = pd.DataFrame({'Instrument Type': itype, 'Exchange': exch}, index=df.index)
@@ -67,7 +63,7 @@ for c in ['marketCap', 'trailingPE', 'fiftyTwoWeekHigh', 'fiftyTwoWeekLow', 'div
 bo['MCap'] = (bo['marketCap'] / 1e7).round(0)
 u2 = pd.DataFrame({
     'Symbol': bo['TckrSymb'], 'Company': bo['FinInstrmNm'], 'Instrument Type': np.where(bo['SctySrs'].isin(['M', 'MT', 'MS']), 'Equity (SME)', 'Equity'),
-    'Exchange': 'BSE', 'BSE Code': bo['FinInstrmId'], 'ISIN': bo['ISIN'], 'Series': bo['SctySrs'], 'Sector': bo['sector'].map(ymap).fillna(bo['sector']).fillna('Unclassified'),
+    'Exchange': 'BSE', 'BSE Code': bo['FinInstrmId'], 'ISIN': bo['ISIN'], 'Series': bo['SctySrs'], 'Sector': nse_sector(pd.Series(np.nan, index=bo.index, dtype=object), bo['industry'], bo['sector']),
     'Industry': bo['industry'], 'Cap Class': bo['MCap'].map(cap_by_mcap), 'Market Cap (Cr)': bo['MCap'], 'Price': bo['ClsPric'].round(2),
     'P/E': bo['trailingPE'].where(bo['trailingPE'] > 0).round(1), 'P/B': bo['priceToBook'].round(2), '52W High': bo['fiftyTwoWeekHigh'].round(2),
     '52W Low': bo['fiftyTwoWeekLow'].round(2), 'Dividend/Share (annual)': bo['dividendRate'].fillna(bo['trailingAnnualDividendRate']).round(2),
