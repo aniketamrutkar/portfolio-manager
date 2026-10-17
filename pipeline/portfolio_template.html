@@ -308,6 +308,10 @@ textarea.nt:not(:placeholder-shown){border-style:solid;border-color:var(--border
 .chsvg .yl{font-size:10.5px;fill:var(--muted);text-anchor:end;font-variant-numeric:tabular-nums} .chsvg .xl{font-size:10.5px;fill:var(--muted);text-anchor:middle} .chsvg .cx{stroke:var(--faint);stroke-width:1}
 .chtip{position:absolute;top:6px;background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;padding:3px 8px;font-size:12px;pointer-events:none;box-shadow:var(--shadow);white-space:nowrap} .chtip .pos{color:var(--pos)} .chtip .neg{color:var(--neg)}
 .chlinks{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:12.5px;margin-top:4px} .chlinks a{color:var(--accent);text-decoration:none;font-weight:600} .chlinks a:hover{text-decoration:underline}
+.grid .grip{cursor:grab;color:var(--faint);font-size:15px;padding:0 5px 0 0;user-select:none;vertical-align:middle} .grid .grip:hover{color:var(--accent)} .nodrag .grip{visibility:hidden}
+.grid tr.dragging td{opacity:.4} .grid tr.dropb td{box-shadow:inset 0 2px 0 var(--accent)} .grid tr.dropa td{box-shadow:inset 0 -2px 0 var(--accent)}
+input.rk{width:52px;padding:2px 4px;text-align:center;font-weight:700;font-size:13px;border:1px dashed var(--border-strong);border-radius:6px;background:transparent;color:var(--text)} input.rk.on{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.grid td.rkc{padding:2px 5px;text-align:center} .myrank{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;margin:0 0 10px}
 .pnote{margin:0 0 12px} .pnote label{display:block;font-size:12px;font-weight:650;color:var(--muted);margin-bottom:4px} textarea.nt.big{min-height:44px;font-size:13.5px;overflow:auto}
 .secseg button{padding:4px 11px;font-size:13px}
 .mseg{display:inline-flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
@@ -491,14 +495,14 @@ const SHORT_H = {'Market Cap (Cr)': 'Mcap ₹Cr', 'Promoter chg 1y (pp)': 'Prom.
   'Dividend Yield %': 'Div yld %', 'Dividend/Share (annual)': 'Div/sh', 'Operating Margin': 'Op. margin', 'Net Margin': 'Net margin', 'Revenue CAGR %': 'Rev CAGR', 'Profit CAGR %': 'Profit CAGR',
   'Interest Cover': 'Int. cover', 'ROE % (avg 4y)': 'ROE 4y', 'ROE % (latest)': 'ROE', 'ROE % (worst yr)': 'ROE worst', 'Forward P/E': 'Fwd P/E', 'PE vs sector': 'P/E vs sec', 'FCF Yield %': 'FCF yld',
   'Upside to target %': 'Upside', 'Turnover (Lakh/day)': 'Turnover ₹L', 'Turnover Last Day (Lakh)': 'Turnover ₹L', 'Volatility %': 'Volatility', 'Instrument Type': 'Type', 'Score v2 (portfolio screen)': 'Score v2',
-  'Shareholder (6)': 'Sharehold. (6)', 'Valuation (16)': 'Value (16)', 'Price trend': 'Trend', 'Why this rank': 'Why this rank'};
+  'Shareholder (6)': 'Sharehold. (6)', 'Valuation (16)': 'Value (16)', 'Price trend': 'Trend', 'Why this rank': 'Why this rank', 'My sector rank': 'Sector #', 'My rank': 'My #'};
 const shortH = k => { const t = String(k); return SHORT_H[t] || t.replace(/^Return (\d)y %$/, '$1Y %').replace(/^CAGR (\d)y %$/, 'CAGR $1Y').replace(/^(\d)Y CAGR %$/, 'CAGR $1Y').replace(/^YoY (\d+→\d+) %$/, '$1'); };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const fmtN = (v, d) => v == null ? '' : Number(v).toLocaleString('en-IN', {maximumFractionDigits: d});
 const short = s => String(s).replace(/^(NSE|BSE|CUSTOM):/, '');
 
 // ---------- state ----------
-let S = {assign: {}, targets: {'Active': 20, 'To Invest': 20, 'ETF / SGB': 9}, custom: [], vis: {}, freeze: {}, stars: {}, doubts: {}, rejects: {}, thinks: {}, notes: {}, cmp: []};
+let S = {assign: {}, targets: {'Active': 20, 'To Invest': 20, 'ETF / SGB': 9}, custom: [], vis: {}, freeze: {}, stars: {}, doubts: {}, rejects: {}, thinks: {}, notes: {}, ranks: {}, cmp: []};
 let hist = [], fut = [];
 let ALL = [], BY = new Map();
 function reindex() {
@@ -515,7 +519,7 @@ function load() {
     if (raw) {
       const o = JSON.parse(raw);
       if (o && o.assign) {
-        S.custom = o.custom || []; S.targets = Object.assign(S.targets, o.targets || {}); S.vis = o.vis || {}; S.freeze = o.freeze || {}; S.cmp = o.cmp || []; S.stars = o.stars || {}; S.doubts = o.doubts || {}; S.rejects = o.rejects || {}; S.thinks = o.thinks || {}; S.notes = o.notes || {};
+        S.custom = o.custom || []; S.targets = Object.assign(S.targets, o.targets || {}); S.vis = o.vis || {}; S.freeze = o.freeze || {}; S.cmp = o.cmp || []; S.stars = o.stars || {}; S.doubts = o.doubts || {}; S.rejects = o.rejects || {}; S.thinks = o.thinks || {}; S.notes = o.notes || {}; S.ranks = o.ranks || {};
         if (o.baseline === D.baseline) S.assign = o.assign;           // same starting lists as this build: keep the edits
         else { S.resetNotice = Object.keys(o.assign).length; }        // the build switched to a new baseline (e.g. clean slate): start from it, keep UI preferences
       }
@@ -572,6 +576,8 @@ function val(r, k) {
   if (k === '_star') { const m = markOf(r[SYM]), t0 = m && S[MARKS[m].s][r[SYM]]; return t0 ? new Date(t0).toISOString().slice(0, 10) : ''; }
   if (k === '_mark') { const m = markOf(r[SYM]); return m ? MARKS[m].n : ''; }
   if (k === '_note') return noteOf(r[SYM]);
+  if (k === '_rko') return rankOf(r[SYM], 'o');
+  if (k === '_rks') return rankOf(r[SYM], 's');
   return r[CI[k]];
 }
 
@@ -620,6 +626,42 @@ function setMark(sym, m) {          // m = 'star' | 'doubt' | 'rej' | '' (clear)
 }
 function toggleStar(sym, force) { const on = force ?? !isStar(sym); if (on) setMark(sym, 'star'); else if (isStar(sym)) setMark(sym, ''); }
 const rowMarkCls = sym => S.rejects[sym] ? ' rej' : '';
+const rankOf = (sym, kind) => ((S.ranks || {})[sym] || {})[kind] ?? null;
+const secOf = sym => { const r = BY.get(sym); return (r && r[CI['Sector']]) || 'Other'; };
+const rankScope = (sym, kind) => Object.keys(S.stars).filter(x => BY.has(x) && (kind === 'o' || secOf(x) === secOf(sym)));
+function renumber(syms, kind) { syms.forEach((x, i) => { S.ranks[x] = {...(S.ranks[x] || {}), [kind]: i + 1}; }); }
+function normRanks() {             // keep every scope 1..n after stocks are un-starred (their old ranks are dropped)
+  S.ranks = S.ranks || {};
+  for (const x of Object.keys(S.ranks)) if (!S.stars[x] || !BY.has(x)) delete S.ranks[x];
+  const by = (list, kind) => list.filter(x => rankOf(x, kind) != null).sort((a, b) => rankOf(a, kind) - rankOf(b, kind));
+  renumber(by(Object.keys(S.stars).filter(x => BY.has(x)), 'o'), 'o');
+  const secs = {}; for (const x of Object.keys(S.stars)) if (BY.has(x)) (secs[secOf(x)] = secs[secOf(x)] || []).push(x);
+  for (const l of Object.values(secs)) renumber(by(l, 's'), 's');
+}
+function setRank(sym, kind, n) {    // n = null clears
+  S.ranks = S.ranks || {};
+  const list = rankScope(sym, kind).filter(x => x !== sym && rankOf(x, kind) != null).sort((a, b) => rankOf(a, kind) - rankOf(b, kind));
+  if (S.ranks[sym]) { delete S.ranks[sym][kind]; if (!Object.keys(S.ranks[sym]).length) delete S.ranks[sym]; }
+  if (n != null && n >= 1) list.splice(Math.min(Math.floor(n) - 1, list.length), 0, sym);
+  renumber(list, kind); save();
+}
+function moveRank(sym, target, after, kind, order) {   // order = the scope's stocks as shown (ranked first, then best v3)
+  const list = order.filter(x => x !== sym), i = list.indexOf(target); if (i < 0) return;
+  list.splice(after ? i + 1 : i, 0, sym); renumber(list, kind); save();
+}
+function fillRanks() {              // unranked ★ stocks go after the ranked ones, best v3 first - overall and within each sector
+  normRanks(); const v3 = x => V3.get(x)?.['Score v3'] ?? -1, stars = Object.keys(S.stars).filter(x => BY.has(x));
+  const fill = (list, kind) => renumber([...list.filter(x => rankOf(x, kind) != null).sort((a, b) => rankOf(a, kind) - rankOf(b, kind)), ...list.filter(x => rankOf(x, kind) == null).sort((a, b) => v3(b) - v3(a))], kind);
+  fill(stars, 'o'); const secs = {}; for (const x of stars) (secs[secOf(x)] = secs[secOf(x)] || []).push(x); for (const l of Object.values(secs)) fill(l, 's'); save();
+}
+const rankBox = (sym, kind) => { const v = rankOf(sym, kind); return `<input type="number" min="1" step="1" class="rk${v != null ? ' on' : ''}" data-rk="${kind}" data-rsym="${esc(sym)}" value="${v ?? ''}" placeholder="–" title="${kind === 'o' ? 'Your overall rank among all ★ stocks' : 'Your rank within ' + esc(secOf(sym))} - type a number and press Enter; the others move down to make room. Empty = unranked." aria-label="${kind === 'o' ? 'Overall' : 'Sector'} rank for ${esc(short(sym))}">`; };
+document.addEventListener('change', e => {
+  const t = e.target.closest && e.target.closest('input[data-rk]'); if (!t) return;
+  const n = t.value === '' ? null : Math.max(1, Math.round(+t.value)); setRank(t.dataset.rsym, t.dataset.rk, n);
+  if (tab === 'fin' && tables.fin) mountFinal();   // re-sort + update the Ranked tile
+  if (dEl && dEl.querySelector('.myrank')) drawDetail();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-rk]')) e.target.blur(); });
 const noteOf = sym => (S.notes || {})[sym] || '';
 let noteT = null;
 function setNote(sym, text) {
@@ -1223,6 +1265,7 @@ function rowHtml(r, T) {
     }
     if (k === '_star') return `<td>${esc(val(r, '_star'))}</td>`;
     if (k === '_note') return `<td class="notec">${noteBox(s, 'nt')}</td>`;
+    if (k === '_rko' || k === '_rks') return isStar(s) ? `<td class="num rkc">${T.id === 'fin' && k === T.cols.find(c => c === '_rko' || c === '_rks') ? '<span class="grip" title="Drag to re-rank" aria-hidden="true">⠿</span>' : ''}${rankBox(s, k === '_rko' ? 'o' : 's')}</td>` : '<td class="num na">–</td>';
     if (k === '_mark') { const m = markOf(s); return `<td>${m ? `<span class="st on ${m}" style="cursor:default">${MARKS[m].i}</span>${esc(MARKS[m].n)}` : ''}</td>`; }
     if (k === '_act') return `<td class="act"><button data-a="asg" title="Move to another account or list">⇄ Move</button><button class="danger" data-a="rm" title="Remove from this account">✕ Remove</button></td>`;
     const m = COLS[CI[k]], v = r[CI[k]];
@@ -1386,7 +1429,7 @@ function stateMenu(anchor) {
     <button data-s="load">Load state from file…</button>
     <hr><button data-s="reset" class="danger">Reset to original lists</button>
     <hr><button data-s="theme">Toggle light / dark</button></div>`, p => {
-    p.querySelector('[data-s=save]').onclick = () => { closePop(); download(new Blob([JSON.stringify({app: 'portfolio-manager', v: 1, assign: S.assign, custom: S.custom, targets: S.targets, stars: S.stars, doubts: S.doubts, rejects: S.rejects, thinks: S.thinks, notes: S.notes}, null, 1)], {type: 'application/json'}), `portfolio_state_${stamp()}.json`); };
+    p.querySelector('[data-s=save]').onclick = () => { closePop(); download(new Blob([JSON.stringify({app: 'portfolio-manager', v: 1, assign: S.assign, custom: S.custom, targets: S.targets, stars: S.stars, doubts: S.doubts, rejects: S.rejects, thinks: S.thinks, notes: S.notes, ranks: S.ranks}, null, 1)], {type: 'application/json'}), `portfolio_state_${stamp()}.json`); };
     p.querySelector('[data-s=load]').onclick = () => { closePop(); document.getElementById('file').click(); };
     p.querySelector('[data-s=reset]').onclick = () => { closePop(); if (confirm('Reset all three accounts to the original lists? (You can still Undo.)')) commit('Reset to original lists', () => { S.assign = JSON.parse(JSON.stringify(D.assign0)); S.custom = []; reindex(); }); };
     p.querySelector('[data-s=theme]').onclick = () => {
@@ -1406,6 +1449,7 @@ document.getElementById('file').onchange = async e => {
     // marks are applied outside commit(): its snapshot ignores them, so a marks-only file looked like "no change" and was never saved or shown
     for (const m of [...MK, 'think']) { const x = o[VIEWS[m].s]; if (x && typeof x === 'object') S[VIEWS[m].s] = Object.fromEntries(Object.entries(x).filter(([k]) => known.has(k))); }
     if (o.notes && typeof o.notes === 'object') S.notes = Object.fromEntries(Object.entries(o.notes).filter(([k, v]) => known.has(k) && typeof v === 'string' && v.trim()));
+    if (o.ranks && typeof o.ranks === 'object') S.ranks = Object.fromEntries(Object.entries(o.ranks).filter(([k, v]) => known.has(k) && v && typeof v === 'object'));
     const msg = 'Loaded state from ' + f.name;
     const changed = commit(msg, () => {
       S.custom = custom;
@@ -1701,6 +1745,7 @@ function drawDetail() {
       <div class="asgbar">${v ? `In <span class="badge a${v.a}">${esc(AN(v.a))} · ${esc(v.l)}</span>` : '<span class="count">Not in any account</span>'}<span class="grow"></span>
         <button data-d="cmp" title="Add to the Compare tab">⚖ Compare</button><button class="primary" data-d="asg">${v ? '⇄ Move…' : '＋ Assign to account…'}</button>${v ? '<button class="danger" data-d="rm">✕ Remove</button>' : ''}</div>
       ${tiles.length ? `<div class="tiles">${tiles.map(([k, val, sub, cls]) => `<div class="tile"><div class="k">${esc(k.split('|')[0])}${ii(k.split('|')[1])}</div><div class="v ${cls || ''}">${val}</div><div class="s">${esc(sub || '')}</div></div>`).join('')}</div>` : ''}
+      ${isStar(sym) ? `<div class="myrank"><b>Your rank</b> # ${rankBox(sym, 'o')} <span class="count">of ${Object.keys(S.stars).filter(x => BY.has(x)).length} ★</span><span style="margin-left:14px"><b>In ${esc(secOf(sym))}</b> # ${rankBox(sym, 's')} <span class="count">of ${rankScope(sym, 's').length}</span></span></div>` : ''}
       <div class="pnote"><label>📝 Your note</label>${noteBox(sym, 'nt big')}</div>
       ${chartHtml}
       ${range}${screen}${listsHtml}${v3Html}${lrHtml}
@@ -2379,6 +2424,8 @@ VIRT._v3 = {k: '_v3', label: 'Score v3', t: 'num', g: 'Portfolio'};
 VIRT._star = {k: '_star', label: 'Marked on', t: 'text', g: 'Portfolio'};
 VIRT._mark = {k: '_mark', label: 'Mark', t: 'cat', g: 'Portfolio'};
 VIRT._note = {k: '_note', label: 'Note', t: 'text', g: 'Portfolio'};
+VIRT._rko = {k: '_rko', label: 'My rank', t: 'num', d: 0, g: 'Portfolio'};
+VIRT._rks = {k: '_rks', label: 'My sector rank', t: 'num', d: 0, g: 'Portfolio'};
 // v3 detail as shortlist columns, keyed 'v3:<Score_v3_Nifty500.csv column>': pillar scores, CAGRs, and the screen's reasoning
 const V3_PILLARS = ['Quality (24)', 'Growth (17)', 'Valuation (16)', 'Safety (14)', 'Shareholder (6)', 'Returns (23)'];
 const V3_WHY = ['Strengths', 'Weaknesses', 'Red flags', 'Returns note', 'Notes'];
@@ -2392,7 +2439,7 @@ const DEF_STAR = ['_chk', '_mark', '_asg', 'Symbol', 'Company', 'Sector', 'Cap C
   'ROE %', 'ROE % (avg 4y)', 'v3:ROE % (worst yr)', 'Revenue CAGR %', 'Profit CAGR %', 'Operating Margin', 'Net Margin',
   'Debt/Equity', 'Interest Cover', 'Promoter %', 'Promoter chg 1y (pp)', '% Below 52W High', 'Price vs 200DMA %', 'Volatility %', 'Max Drawdown 3y %',
   ...V3_WHY.map(c => 'v3:' + c), '_star'].filter(k => VIRT[k] || CI[k] != null);
-const STAR_PICK = [VIRT._note, VIRT._mark, VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIRT['v3:' + c]), ...COLS, VIRT._star];
+const STAR_PICK = [VIRT._rko, VIRT._rks, VIRT._note, VIRT._mark, VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIRT['v3:' + c]), ...COLS, VIRT._star];
 const ALL_PICK = [VIRT._asg, VIRT._v3, ...V3_EXTRA.map(([c]) => VIRT['v3:' + c]), ...COLS];
 let stView = 'star';
 try { stView = sessionStorage.getItem(STORE + '-stview') || 'star'; } catch (e) {}
@@ -2442,28 +2489,50 @@ function mountShortlist() {
 }
 
 // ---------- ★ Shortlisted: the final ★ list - notes, sector counts, account assignment ----------
-const DEF_FIN = ['_chk', 'Symbol', '_note', '_asg', 'Sector', 'Cap Class', '_v3', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'CAGR 3y %', 'CAGR 5y %', 'Price trend', ...YOY,
+const DEF_FIN = ['_chk', '_rko', '_rks', 'Symbol', '_note', '_asg', 'Sector', 'Cap Class', '_v3', 'Return 1y %', 'Return 3y %', 'Return 5y %', 'CAGR 3y %', 'CAGR 5y %', 'Price trend', ...YOY,
   'Price', 'Market Cap (Cr)', 'P/E', 'ROE % (avg 4y)', 'Debt/Equity', 'Dividend Yield %', 'v3:Strengths', 'v3:Weaknesses', 'v3:Red flags', 'Company'].filter(k => VIRT[k] || CI[k] != null);
 let finSec = '';
 try { finSec = sessionStorage.getItem(STORE + '-finsec') || ''; } catch (e) {}
 function mountFinal() {
   const all = () => Object.keys(S.stars).map(s0 => BY.get(s0)).filter(Boolean);
-  const rowsFn = () => all().filter(r => !finSec || r[CI['Sector']] === finSec).sort((a, b) => (V3.get(b[SYM])?.['Score v3'] ?? -1) - (V3.get(a[SYM])?.['Score v3'] ?? -1));
-  const T = tables.fin || Table('fin', rowsFn, DEF_FIN, {freeze: 'Symbol', noun: 'shortlisted stocks', pick: STAR_PICK, empty: 'No ★ shortlisted stocks yet — click ★ beside any stock in any tab.',
+  normRanks();
+  const rk = r => rankOf(r[SYM], finSec ? 's' : 'o') ?? 1e9, v3 = r => V3.get(r[SYM])?.['Score v3'] ?? -1;
+  const rowsFn = () => all().filter(r => !finSec || r[CI['Sector']] === finSec).sort((a, b) => rk(a) - rk(b) || v3(b) - v3(a));
+  if (S.vis.fin && !S.vis.fin.includes('_rko')) S.vis.fin.splice(S.vis.fin.indexOf('_chk') + 1, 0, '_rko', '_rks');
+  const T = tables.fin || Table('fin', rowsFn, DEF_FIN, {ps: 250, freeze: 'Symbol', noun: 'shortlisted stocks', pick: STAR_PICK, empty: 'No ★ shortlisted stocks yet — click ★ beside any stock in any tab.', extraTools: `<button data-r="rkfill" title="Give every unranked stock a rank after your ranked ones, best v3 score first (overall and within each sector)">Rank the rest by v3</button><button class="ghost danger" data-r="rkclr">Clear my ranks</button>`,
     hay: r => SEARCH_KEYS.map(i => r[i] ?? '').join(' ') + ' ' + asgLabel(r[SYM]) + ' ' + noteOf(r[SYM])});
   T.rowsFn = rowsFn;
   const rows = all(), sec = {}; for (const r of rows) { const k = r[CI['Sector']] || 'Other'; sec[k] = (sec[k] || 0) + 1; }
   if (finSec && !sec[finSec]) finSec = '';
   const secs = Object.entries(sec).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const cnt = {}; let free = 0; for (const r of rows) { const v = S.assign[r[SYM]]; if (v) cnt[v.a] = (cnt[v.a] || 0) + 1; else free++; }
-  const noted = rows.filter(r => noteOf(r[SYM])).length;
+  const noted = rows.filter(r => noteOf(r[SYM])).length, ranked = rows.filter(r => rankOf(r[SYM], 'o') != null).length;
   const tile = (k, v, sub) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub || ''}</div></div>`;
   view.innerHTML = `
-    <div class="tiles">${tile('<span class="st on star" style="cursor:default">★</span>Shortlisted', rows.length, `${secs.length} sectors`)}${tile('Not in an account', free, 'tick them → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from this list')).join('')}${tile('📝 With a note', noted, `${rows.length - noted} without`)}</div>
+    <div class="tiles">${tile('<span class="st on star" style="cursor:default">★</span>Shortlisted', rows.length, `${secs.length} sectors`)}${tile('Not in an account', free, 'tick them → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from this list')).join('')}${tile('📝 With a note', noted, `${rows.length - noted} without`)}${tile('# Ranked by you', ranked, `${rows.length - ranked} unranked`)}</div>
     <div class="panel"><h3>★ Shortlisted — by sector</h3>
       <div class="mseg secseg" data-fsec>${[['', 'All sectors', rows.length], ...secs.map(([k, n]) => [k, k, n])].map(([id, l, n]) => `<button aria-pressed="${id === finSec}" data-v="${esc(id)}">${esc(l)}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="sub">Only your ★ shortlisted stocks, best v3 score first. Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Angel, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
+      <div class="sub">Only your ★ shortlisted stocks, in <b>your rank</b> order (unranked ones after, best v3 first); pick a sector and they follow your <b>sector rank</b>. <b>Drag a row by its ⠿ grip</b> to move it up or down, or type a number in <b>My #</b> / <b>Sector #</b> and press Enter — the others move down to make room; clear it to unrank. (Dragging works when no column sort, search or filter is on.) Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Angel, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
   T.mount(view.querySelector('[data-fint]'));
+  // drag rows by the ⠿ grip to re-rank: All sectors -> My #, a sector picked -> Sector #
+  T.el.classList.toggle('nodrag', !!(T.sort || T.q || Object.values(T.f).some(v => v)));
+  if (!T.el.dataset.dnd) { T.el.dataset.dnd = '1'; let drag = null;
+    const clr = () => T.el.querySelectorAll('tr.dropb, tr.dropa').forEach(x => x.classList.remove('dropb', 'dropa'));
+    T.el.addEventListener('mousedown', e => { const g = e.target.closest('.grip'); const tr = g && g.closest('tr[data-sym]'); if (tr) tr.draggable = true; });
+    T.el.addEventListener('dragstart', e => { const tr = e.target.closest && e.target.closest('tr[data-sym]'); if (!tr || !tr.draggable) return;
+      if (T.sort || T.q || Object.values(T.f).some(v => v)) { e.preventDefault(); tr.draggable = false; toast('Clear the column sort, search and filters to drag - the order you see must be your rank order', false); return; }
+      drag = tr.dataset.sym; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', drag); tr.classList.add('dragging'); });
+    T.el.addEventListener('dragover', e => { if (!drag) return; const tr = e.target.closest('tbody tr[data-sym]'); if (!tr || tr.dataset.sym === drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      const r = tr.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2; clr(); tr.classList.add(after ? 'dropa' : 'dropb'); });
+    T.el.addEventListener('dragleave', e => { if (!T.el.contains(e.relatedTarget)) clr(); });
+    T.el.addEventListener('drop', e => { if (!drag) return; const tr = e.target.closest('tbody tr[data-sym]'); clr(); if (!tr || tr.dataset.sym === drag) return; e.preventDefault();
+      const r = tr.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2, kind = finSec ? 's' : 'o', sym = drag;
+      moveRank(sym, tr.dataset.sym, after, kind, T.rowsFn().map(x => x[SYM])); drag = null; mountFinal();
+      toast(`${short(sym)} → ${kind === 'o' ? 'rank' : finSec + ' rank'} #${rankOf(sym, kind)}`, false); });
+    T.el.addEventListener('dragend', () => { clr(); T.el.querySelectorAll('tr.dragging').forEach(x => { x.classList.remove('dragging'); x.draggable = false; }); drag = null; });
+  }
+  T.el.querySelector('[data-r=rkfill]').onclick = () => { fillRanks(); mountFinal(); toast('Ranked the rest by v3 score', false); };
+  const rc = T.el.querySelector('[data-r=rkclr]'); rc.onclick = () => { if (rc.dataset.armed) { S.ranks = {}; save(); mountFinal(); toast('Cleared your ranks', false); } else { rc.dataset.armed = '1'; rc.textContent = 'Click again to confirm'; setTimeout(() => { if (rc.isConnected) { delete rc.dataset.armed; rc.textContent = 'Clear my ranks'; } }, 3000); } };
   view.querySelectorAll('textarea[data-note]').forEach(t => { if (t.value) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; } });
   view.querySelector('[data-fsec]').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === finSec) return; finSec = b.dataset.v; try { sessionStorage.setItem(STORE + '-finsec', finSec); } catch (er) {} T.sel.clear(); T.page = 0; mountFinal(); };
 }
@@ -2849,7 +2918,7 @@ if (TEST) {
       tab = 'all'; mountView(); tables.all.q = short(rs); tables.all.body(); const tr2 = view.querySelector(`[data-tbl="all"] tr[data-sym="${CSS.escape(rs)}"]`);
       ok(full && tr2 && getComputedStyle(tr2.querySelectorAll('td')[2]).opacity === '0.5', 'rejected: full strength in the Shortlist tab, still dimmed in other tabs');
       tables.all.q = ''; tables.all.body(); [S.stars, S.doubts, S.rejects] = keep; stView = kv; }
-    { const keep = [S.stars, S.doubts, S.rejects, S.notes, S.assign], fs = ALL.filter(r => r[CI['Sector']] && V3.has(r[SYM])), a1 = fs[0], a2 = fs.find(r => r[CI['Sector']] !== a1[CI['Sector']]), a3 = fs.find(r => r !== a1 && r[CI['Sector']] === a1[CI['Sector']]);
+    { const keepRk = S.ranks; S.ranks = {}; const keep = [S.stars, S.doubts, S.rejects, S.notes, S.assign], fs = ALL.filter(r => r[CI['Sector']] && V3.has(r[SYM])), a1 = fs[0], a2 = fs.find(r => r[CI['Sector']] !== a1[CI['Sector']]), a3 = fs.find(r => r !== a1 && r[CI['Sector']] === a1[CI['Sector']]);
       S.stars = {[a1[SYM]]: 1, [a2[SYM]]: 1, [a3[SYM]]: 1}; S.doubts = {[fs[9][SYM]]: 1}; S.rejects = {}; S.notes = {}; S.assign = {...S.assign}; const kf = finSec; finSec = ''; tab = 'fin'; renderTabs(); mountView();
       const chips = [...view.querySelectorAll('[data-fsec] button')].map(b => b.textContent);
       ok(tables.fin.filtered().length === 3 && chips[0] === 'All sectors3' && chips[1] === a1[CI['Sector']] + '2' && chips[2] === a2[CI['Sector']] + '1' && document.querySelector('nav.tabs [data-t="fin"] .n').textContent === '3', '★ Shortlisted tab: only ★ stocks, sector counts at the top');
@@ -2857,9 +2926,20 @@ if (TEST) {
       const ta = view.querySelector(`textarea[data-note="${CSS.escape(a1[SYM])}"]`); ta.value = 'Wait for Q3 results'; ta.dispatchEvent(new Event('input', {bubbles: true}));
       openDetail(a1[SYM]); const pn = dEl.querySelector('.pnote textarea'); const inPop = pn && pn.value === 'Wait for Q3 results'; closeDetail();
       ok(noteOf(a1[SYM]) === 'Wait for Q3 results' && inPop && tables.fin.cols.includes('_note'), '★ Shortlisted tab: note typed in the table is saved and shown in the popup');
+      fillRanks(); ok([a1, a2, a3].every(r => rankOf(r[SYM], 'o') != null) && rankOf(a2[SYM], 's') === 1 && [rankOf(a1[SYM], 's'), rankOf(a3[SYM], 's')].sort().join() === '1,2', 'my rank: "Rank the rest by v3" fills overall + sector ranks');
+      const last = [a1, a2, a3].find(r => rankOf(r[SYM], 'o') === 3)[SYM]; mountView(); const ib = view.querySelector(`input[data-rk="o"][data-rsym="${CSS.escape(last)}"]`); ib.value = '1'; ib.dispatchEvent(new Event('change', {bubbles: true}));
+      const ord = [a1, a2, a3].map(r => rankOf(r[SYM], 'o')).sort().join();
+      ok(rankOf(last, 'o') === 1 && ord === '1,2,3' && tables.fin.filtered()[0][SYM] === last, 'my rank: setting #1 moves the others down (1..n, no ties) and reorders the tab');
+      const sx = [a1, a3].find(r => rankOf(r[SYM], 's') === 2)[SYM]; setRank(sx, 's', 1); finSec = secOf(sx); mountView(); ok(tables.fin.filtered()[0][SYM] === sx && rankOf(a2[SYM], 's') === 1, 'my rank: sector rank orders the sector view and stays within the sector'); finSec = ''; mountView();
+      { const rows0 = tables.fin.filtered().map(r => r[SYM]), src = view.querySelector(`tr[data-sym="${CSS.escape(rows0[2])}"]`), dst = view.querySelector(`tr[data-sym="${CSS.escape(rows0[0])}"]`);
+        src.querySelector('.grip').dispatchEvent(new MouseEvent('mousedown', {bubbles: true})); const dt = new DataTransfer(), b = dst.getBoundingClientRect();
+        src.dispatchEvent(new DragEvent('dragstart', {bubbles: true, dataTransfer: dt})); dst.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt, clientY: b.top + 2}));
+        dst.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt, clientY: b.top + 2}));
+        ok(rankOf(rows0[2], 'o') === 1 && rankOf(rows0[0], 'o') === 2 && tables.fin.filtered()[0][SYM] === rows0[2], 'my rank: dragging a row by its grip above the top row makes it #1'); }
+      setRank(last, 'o', null); ok(rankOf(last, 'o') == null && [a1, a2, a3].filter(r => r[SYM] !== last).map(r => rankOf(r[SYM], 'o')).sort().join() === '1,2', 'my rank: clearing a rank closes the gap');
       tables.fin.q = 'Q3 results'; ok(tables.fin.filtered().length === 1, '★ Shortlisted tab: search finds stocks by their note'); tables.fin.q = '';
       tables.fin.sel.add(a2[SYM]); assignTo([a2[SYM]], 2, 'Active'); mountView(); ok(S.assign[a2[SYM]] && S.assign[a2[SYM]].a === 2 && view.querySelector(`tr[data-sym="${CSS.escape(a2[SYM])}"] .badge.a2`), '★ Shortlisted tab: assign to an account'); undo();
-      [S.stars, S.doubts, S.rejects, S.notes, S.assign] = keep; finSec = kf; tables.fin.sel.clear(); tab = 'all'; mountView(); }
+      [S.stars, S.doubts, S.rejects, S.notes, S.assign] = keep; S.ranks = keepRk; finSec = kf; tables.fin.sel.clear(); tab = 'all'; mountView(); }
     if (D.chart && Object.keys(D.chart).length) { const cs = Object.keys(D.chart).find(k => BY.has(k) && D.chart[k][3].length > 100), keepR = chRange; chRange = '5Y'; openDetail(cs);
       const p = dEl.querySelector('.chartp'), path = p && p.querySelectorAll('svg path')[1], n5 = path ? (path.getAttribute('d').match(/L/g) || []).length + 1 : 0;
       p.querySelector('[data-chr="Max"]').click(); const nMax = (p.querySelectorAll('svg path')[1].getAttribute('d').match(/L/g) || []).length + 1;
