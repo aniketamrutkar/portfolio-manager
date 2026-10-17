@@ -495,7 +495,7 @@ const SHORT_H = {'Market Cap (Cr)': 'Mcap ₹Cr', 'Promoter chg 1y (pp)': 'Prom.
   'Dividend Yield %': 'Div yld %', 'Dividend/Share (annual)': 'Div/sh', 'Operating Margin': 'Op. margin', 'Net Margin': 'Net margin', 'Revenue CAGR %': 'Rev CAGR', 'Profit CAGR %': 'Profit CAGR',
   'Interest Cover': 'Int. cover', 'ROE % (avg 4y)': 'ROE 4y', 'ROE % (latest)': 'ROE', 'ROE % (worst yr)': 'ROE worst', 'Forward P/E': 'Fwd P/E', 'PE vs sector': 'P/E vs sec', 'FCF Yield %': 'FCF yld',
   'Upside to target %': 'Upside', 'Turnover (Lakh/day)': 'Turnover ₹L', 'Turnover Last Day (Lakh)': 'Turnover ₹L', 'Volatility %': 'Volatility', 'Instrument Type': 'Type', 'Score v2 (portfolio screen)': 'Score v2',
-  'Shareholder (6)': 'Sharehold. (6)', 'Valuation (16)': 'Value (16)', 'Price trend': 'Trend', 'Why this rank': 'Why this rank', 'My sector rank': 'Sector #', 'My rank': 'My #'};
+  'Shareholder (6)': 'Sharehold. (6)', 'Valuation (16)': 'Value (16)', 'Price trend': 'Trend', 'Why this rank': 'Why this rank', 'My sector rank': 'Sector #', 'My overall rank': 'Overall #'};
 const shortH = k => { const t = String(k); return SHORT_H[t] || t.replace(/^Return (\d)y %$/, '$1Y %').replace(/^CAGR (\d)y %$/, 'CAGR $1Y').replace(/^(\d)Y CAGR %$/, 'CAGR $1Y').replace(/^YoY (\d+→\d+) %$/, '$1'); };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const fmtN = (v, d) => v == null ? '' : Number(v).toLocaleString('en-IN', {maximumFractionDigits: d});
@@ -1096,6 +1096,7 @@ function Table(id, rowsFn, defCols, opts = {}) {
   T.hay = opts.hay || (r => SEARCH_KEYS.map(i => r[i] ?? '').join(' ') + ' ' + asgLabel(r[SYM]));
   if (S.vis[id] && !S.vis[id].some(k => k === 'Price trend' || String(k).startsWith('YoY '))) { const c = S.vis[id].slice();
     defCols.forEach((k, i) => { if (isRetNew(k) && !c.includes(k)) { const prev = defCols.slice(0, i).reverse().find(p => c.includes(p)); c.splice(prev ? c.indexOf(prev) + 1 : c.length, 0, k); } }); S.vis[id] = c; }
+  if (S.vis[id]) S.vis[id] = [...new Set(S.vis[id])];                  // repair layouts saved with a duplicated column
   T.cols = (S.vis[id] || defCols).filter(k => VIRT[k] || T.M(k));
   T.freeze = id in S.freeze ? S.freeze[id] : (opts.freeze || null);     // freeze columns up to & including this key
   T.applyFreeze = () => {
@@ -1745,7 +1746,7 @@ function drawDetail() {
       <div class="asgbar">${v ? `In <span class="badge a${v.a}">${esc(AN(v.a))} · ${esc(v.l)}</span>` : '<span class="count">Not in any account</span>'}<span class="grow"></span>
         <button data-d="cmp" title="Add to the Compare tab">⚖ Compare</button><button class="primary" data-d="asg">${v ? '⇄ Move…' : '＋ Assign to account…'}</button>${v ? '<button class="danger" data-d="rm">✕ Remove</button>' : ''}</div>
       ${tiles.length ? `<div class="tiles">${tiles.map(([k, val, sub, cls]) => `<div class="tile"><div class="k">${esc(k.split('|')[0])}${ii(k.split('|')[1])}</div><div class="v ${cls || ''}">${val}</div><div class="s">${esc(sub || '')}</div></div>`).join('')}</div>` : ''}
-      ${isStar(sym) ? `<div class="myrank"><b>Your rank</b> # ${rankBox(sym, 'o')} <span class="count">of ${Object.keys(S.stars).filter(x => BY.has(x)).length} ★</span><span style="margin-left:14px"><b>In ${esc(secOf(sym))}</b> # ${rankBox(sym, 's')} <span class="count">of ${rankScope(sym, 's').length}</span></span></div>` : ''}
+      ${isStar(sym) ? `<div class="myrank"><b>Overall rank</b> # ${rankBox(sym, 'o')} <span class="count">of ${Object.keys(S.stars).filter(x => BY.has(x)).length} ★</span><span style="margin-left:14px"><b>In ${esc(secOf(sym))}</b> # ${rankBox(sym, 's')} <span class="count">of ${rankScope(sym, 's').length}</span></span></div>` : ''}
       <div class="pnote"><label>📝 Your note</label>${noteBox(sym, 'nt big')}</div>
       ${chartHtml}
       ${range}${screen}${listsHtml}${v3Html}${lrHtml}
@@ -2424,7 +2425,7 @@ VIRT._v3 = {k: '_v3', label: 'Score v3', t: 'num', g: 'Portfolio'};
 VIRT._star = {k: '_star', label: 'Marked on', t: 'text', g: 'Portfolio'};
 VIRT._mark = {k: '_mark', label: 'Mark', t: 'cat', g: 'Portfolio'};
 VIRT._note = {k: '_note', label: 'Note', t: 'text', g: 'Portfolio'};
-VIRT._rko = {k: '_rko', label: 'My rank', t: 'num', d: 0, g: 'Portfolio'};
+VIRT._rko = {k: '_rko', label: 'My overall rank', t: 'num', d: 0, g: 'Portfolio'};
 VIRT._rks = {k: '_rks', label: 'My sector rank', t: 'num', d: 0, g: 'Portfolio'};
 // v3 detail as shortlist columns, keyed 'v3:<Score_v3_Nifty500.csv column>': pillar scores, CAGRs, and the screen's reasoning
 const V3_PILLARS = ['Quality (24)', 'Growth (17)', 'Valuation (16)', 'Safety (14)', 'Shareholder (6)', 'Returns (23)'];
@@ -2498,7 +2499,7 @@ function mountFinal() {
   normRanks();
   const rk = r => rankOf(r[SYM], finSec ? 's' : 'o') ?? 1e9, v3 = r => V3.get(r[SYM])?.['Score v3'] ?? -1;
   const rowsFn = () => all().filter(r => !finSec || r[CI['Sector']] === finSec).sort((a, b) => rk(a) - rk(b) || v3(b) - v3(a));
-  if (S.vis.fin && !S.vis.fin.includes('_rko')) S.vis.fin.splice(S.vis.fin.indexOf('_chk') + 1, 0, '_rko', '_rks');
+  if (S.vis.fin && !S.vis.fin.includes('_rko') && !S.vis.fin.includes('_rks')) S.vis.fin.splice(S.vis.fin.indexOf('_chk') + 1, 0, '_rko', '_rks');   // layout saved before ranks existed (once; hiding one later is respected)
   const T = tables.fin || Table('fin', rowsFn, DEF_FIN, {ps: 250, freeze: 'Symbol', noun: 'shortlisted stocks', pick: STAR_PICK, empty: 'No ★ shortlisted stocks yet — click ★ beside any stock in any tab.', extraTools: `<button data-r="rkfill" title="Give every unranked stock a rank after your ranked ones, best v3 score first (overall and within each sector)">Rank the rest by v3</button><button class="ghost danger" data-r="rkclr">Clear my ranks</button>`,
     hay: r => SEARCH_KEYS.map(i => r[i] ?? '').join(' ') + ' ' + asgLabel(r[SYM]) + ' ' + noteOf(r[SYM])});
   T.rowsFn = rowsFn;
@@ -2512,9 +2513,9 @@ function mountFinal() {
     <div class="tiles">${tile('<span class="st on star" style="cursor:default">★</span>Shortlisted', rows.length, `${secs.length} sectors`)}${tile('Not in an account', free, 'tick them → Assign to…')}${ACCS.map(a => tile(`<span class="badge a${a}">${esc(AN(a))}</span>`, cnt[a] || 0, 'from this list')).join('')}${tile('📝 With a note', noted, `${rows.length - noted} without`)}${tile('# Ranked by you', ranked, `${rows.length - ranked} unranked`)}</div>
     <div class="panel"><h3>★ Shortlisted — by sector</h3>
       <div class="mseg secseg" data-fsec>${[['', 'All sectors', rows.length], ...secs.map(([k, n]) => [k, k, n])].map(([id, l, n]) => `<button aria-pressed="${id === finSec}" data-v="${esc(id)}">${esc(l)}<span class="n">${n}</span></button>`).join('')}</div>
-      <div class="sub">Only your ★ shortlisted stocks, in <b>your rank</b> order (unranked ones after, best v3 first); pick a sector and they follow your <b>sector rank</b>. <b>Drag a row by its ⠿ grip</b> to move it up or down, or type a number in <b>My #</b> / <b>Sector #</b> and press Enter — the others move down to make room; clear it to unrank. (Dragging works when no column sort, search or filter is on.) Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Angel, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
+      <div class="sub">Only your ★ shortlisted stocks, in your <b>Overall #</b> order (your rank among all ★ stocks; unranked ones after, best v3 first). <b>Sector #</b> is your rank within the stock's own sector — pick a sector and the list follows it. <b>Drag a row by its ⠿ grip</b> to move it up or down, or type a number in <b>Overall #</b> / <b>Sector #</b> and press Enter — the others move down to make room; clear it to unrank. (Dragging works when no column sort, search or filter is on.) Click a sector to filter. Type a note in the <b>Note</b> column (saved as you type, kept in the state file, also shown in the stock popup). Tick stocks and use <b>Assign to…</b> — or the badge in the Assigned column — to put them into PEW-Angel, JPW-Angel or JPW-Zerodha.</div><div data-fint></div></div>`;
   T.mount(view.querySelector('[data-fint]'));
-  // drag rows by the ⠿ grip to re-rank: All sectors -> My #, a sector picked -> Sector #
+  // drag rows by the ⠿ grip to re-rank: All sectors -> Overall #, a sector picked -> Sector #
   T.el.classList.toggle('nodrag', !!(T.sort || T.q || Object.values(T.f).some(v => v)));
   if (!T.el.dataset.dnd) { T.el.dataset.dnd = '1'; let drag = null;
     const clr = () => T.el.querySelectorAll('tr.dropb, tr.dropa').forEach(x => x.classList.remove('dropb', 'dropa'));
@@ -2947,6 +2948,10 @@ if (TEST) {
       ok(n5 >= 250 && n5 <= 262 && nMax > n5 + 100 && p.querySelector('.chs').textContent.includes('%/yr') && Math.abs(last / px - 1) < .03 && lk.some(u => u.includes('tradingview.com/chart/?symbol=NSE')) && lk.some(u => u.includes('finance.yahoo.com/chart/')), `popup chart: ${short(cs)} 5Y weekly (${n5} pts) / Max (${nMax} pts), ends at the app price, deep links to TradingView / Yahoo`);
       chRange = keepR; closeDetail();
       const nb = ALL.find(r => !D.chart[r[SYM]] && r[CI['Exchange']] === 'BSE' && /^Equity/.test(r[CI['Instrument Type']])); if (nb) { openDetail(nb[SYM]); ok(!dEl.querySelector('.chbox') && dEl.querySelector('.chlinks a[href*="tradingview.com/chart/?symbol=BSE"]'), 'popup chart: scrips without history still get chart links'); closeDetail(); } }
+    { const kv = S.vis.fin, kt = tables.fin; S.vis.fin = ['_chk', '_rks', '_rks', 'Symbol', 'Sector']; delete tables.fin; tab = 'fin'; mountView(); const c1 = tables.fin.cols.slice();
+      delete tables.fin; mountView(); const c2 = tables.fin.cols.slice();
+      ok(c1.filter(k => k === '_rks').length === 1 && !c1.includes('_rko') && c2.join() === c1.join(), 'columns: a saved layout never shows a column twice, and a hidden Overall # stays hidden');
+      if (kv) S.vis.fin = kv; else delete S.vis.fin; delete tables.fin; if (kt) tables.fin = kt; tab = 'all'; mountView(); }
     { const hb = ALL.find(r => r[CI['Series']] === 'BE'), zb = ALL.find(r => r[CI['Series']] === 'Z'), eq = ALL.find(r => r[CI['Series']] === 'EQ'), bg = ALL.find(r => r[CI['Series']] === 'B');
       ok(hb && zb && seriesTag(hb[SYM]).includes('>T2T<') && seriesTag(zb[SYM]).includes('sg z') && !seriesTag(eq[SYM]) && !seriesTag(bg[SYM]), `series tag: T2T for BE (${short(hb[SYM])}), Z for BSE Z group, none for EQ / BSE B`);
       tab = 'all'; mountView(); tables.all.q = short(hb[SYM]); tables.all.body(); const c = [...view.querySelectorAll('[data-tbl="all"] td.sym')].find(td => td.querySelector('.tk').textContent === short(hb[SYM]));
